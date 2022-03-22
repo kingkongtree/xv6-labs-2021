@@ -1,4 +1,4 @@
-# 1. 官方文档
+# 1. [官方文档](https://qemu.readthedocs.io/en/latest/devel/index.html)
 - [Documentation/TCG](https://wiki.qemu.org/Documentation/TCG)
     - [intro README](https://gitlab.com/qemu-project/qemu/-/blob/master/tcg/README) 概述
     - [docs/devel/tcg.rst](https://gitlab.com/qemu-project/qemu/-/blob/master/docs/devel/tcg.rst) 语法、基础ir
@@ -8,13 +8,14 @@
 - [riscv-isa-manual](https://github.com/riscv/riscv-isa-manual)
     - [RISC-V Privileged ISA v1.12](https://github.com/riscv/riscv-isa-manual/releases/download/Priv-v1.12/riscv-privileged-20211203.pdf)
     - [RISC-V Unprivileged ISA v2.1](https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf)
-- [ARM](https://documentation-service.arm.com/)
+- [ARM](https://developer.arm.com/documentation?_ga=2.223438683.1363885975.1647911959-1057699989.1647911959#cf[navigationhierarchiesproducts]=Architectures,CPU%20Architecture)
     - [Arm Armv9-A A64](https://documentation-service.arm.com/static/61c04cbab691546d37bd2b87?token=)
     - [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=)
 # 2. 参考文档
 - 教程
     - [riscv gcc中添加custom自定义指令](https://cloud.tencent.com/developer/article/1886469)
     - [riscv实现自定义指令并用qemu运行](https://cloud.tencent.com/developer/article/1819855?from=article.detail.1770528)
+    - [qemu 概念空间](https://gitee.com/Kenneth-Lee-2012/MySummary/blob/master/概念空间分析/qemu.rst#id2)
 - 参考实现
     - [plct + nuclei](https://link.zhihu.com/?target=https%3A//github.com/isrc-cas/plct-qemu/tree/plct-nuclei)
     - [plct + sifive](https://github.com/plctlab/plct-qemu/tree/rvv-sifive-rfc-rc3)
