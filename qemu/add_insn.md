@@ -97,106 +97,55 @@
         - .meson: python的配置文件
             - to be implemented
 - 前端实现：c translate
-    - trans_xxx: 定义宏GEN_TRANS_PRESHF，对shfopc抽象处理
-        ```
-        #define GEN_TRANS_PRESHF(SHFTYPE)                                                   \
-        static bool trans_preshf_##SHFTYPE##(DisasContext *ctx, arg_preshf_##SHFTYPE## *a)  \
-        {                                                                                   \
-            return gen_preshf(ctx, a, gen_preshf_##SHFTYPE##);                              \
-        }                                                                                   \
+    ```
+    #define GEN_TRANS_PRESHF(SHFOPC)                                                    \
+    static bool trans_##SHFOPC##_preshf(DisasContext *ctx, arg_##SHFOPC##_preshf *a)    \
+    {                                                                                   \
+        TCGv shfdst = tcg_temp_new();                                                   \
+        TCGv shfamt = tcg_temp_new();                                                   \
+        TCGv shfsrc = tcg_temp_new();                                                   \
+        TCGv dst = tcg_temp_new();                                                      \
+        TCGv src = tcg_temp_new();                                                      \
+                                                                                        \
+        gen_get_gpr(shfsrc, a->rs2);                                                    \
+        tcg_gen_movi_tl(shfamt, a->shfamt);                                             \
+                                                                                        \
+        switch(a->shftype) { /* by shftype */                                           \
+            case 0: /* 00, sll */                                                       \
+                tcg_gen_shl_tl(shfdst, shfsrc, shfamt);                                 \
+                break;                                                                  \
+            case 1: /* 01, srl */                                                       \
+                tcg_gen_shr_tl(shfdst, shfsrc, shfamt);                                 \
+                break;                                                                  \
+            case 2: /* 10, sra */                                                       \
+                tcg_gen_sar_tl(shfdst, shfsrc, shfamt);                                 \
+                break;                                                                  \
+            case 3: /* 11, ror */                                                       \
+                tcg_gen_rotr_tl(shfdst, shfsrc, shfamt);                                \
+                break;                                                                  \
+            default:                                                                    \
+                return false;                                                           \
+        }                                                                               \
+                                                                                        \
+        gen_get_gpr(dst, a->rd);                                                        \
+        gen_get_gpr(src, a->rs1);                                                       \
+                                                                                        \
+        tcg_gen_##SHFOPC##_tl(dst, src, shfdst); /* by shfopc */                        \
+                                                                                        \
+        gen_set_gpr(a->rd, dst);                                                        \
+                                                                                        \
+        tcg_temp_free(shfdst);                                                          \
+        tcg_temp_free(shfsrc);                                                          \
+        tcg_temp_free(shfamt);                                                          \
+        tcg_temp_free(src);                                                             \
+        tcg_temp_free(dst);                                                             \
+                                                                                        \
+        return true;                                                                    \
+    }                                                                                   \
 
-        GEN_TRANS_PRESHF(add)
-        GEN_TRANS_PRESHF(sub)
-        GEN_TRANS_PRESHF(or)
-        GEN_TRANS_PRESHF(xor)
-        GEN_TRANS_PRESHF(and)
-        ```
-    - gen_preshf: 按shftype
-        ```
-        static bool gen_preshf(DisasContext *ctx, arg_r *a, void(*func)(TCGv, TCGv, TCGv))
-        {
-            TCGv dst = tcg_temp_new();
-            TCGv src = tcg_temp_new();
-            TCGv shfdst = tcg_temp_new();
-            TCGv shfamt = tcg_temp_new();
-            TCGv shfsrc = tcg_temp_new();
-
-            gen_get_gpr(shfsrc, a->rs2);
-            gen_get_gpr(shfamt, a->shfamt);
-
-            switch(a->shftype) { // by shftype
-                case 0: // 00
-                    gen_presll(shfdst, shfsrc, shfamt);
-                    break;
-                case 1: // 01
-                    gen_presrl(shfdst, shfsrc, shfamt);
-                    break;
-                case 2; // 10
-                    gen_presra(shfdst, shfsrc, shfamt);
-                    break;
-                case 3: // 11
-                    gen_preror(shfdst, shfsrc, shfamt);
-                    break;
-                default:
-                    return false;
-            }
-
-            gen_get_gpr(dst, a->rd);
-            gen_get_gpr(src, a->rs1);
-
-            (*func)(dst, src, shfdst); // by shfopc
-
-            gen_set_gpr(a->rd, dst);
-
-            tcg_temp_free(shfdst);
-            tcg_temp_free(shfsrc);
-            tcg_temp_free(shfamt);
-            tcg_temp_free(src);
-            tcg_temp_free(dst);
-
-            return true;
-        }
-        ```
-    - gen_prexxx: preshf原子定义, 基本上是对qemu原生op的直接映射
-        - by shftype
-            ```
-            static void gen_presll(TCGv dst, TCGv src, TCGv amt)
-            {
-                tcg_gen_shl_tl(dst, src, amt);
-            }
-            static void gen_presrl(TCGv dst, TCGv src, TCGv amt)
-            {
-                tcg_gen_shr_tl(dst, src, amt);
-            }
-            static void gen_presra(TCGv dst, TCGv src, TCGv amt)
-            {
-                tcg_gen_sar_tl(dst, src, amt);
-            }
-            static void gen_preror(TCGv dst, TCGv src, TCGv amt)
-            {
-                tcg_gen_rotr_tl(dst, src, amt);
-            }
-            ```
-        - by shfopc:
-            ```
-            static void gen_preshf_add(TCGv dst, TCGv src1, TCGv src2)
-            {
-                tcg_gen_add_tl(dst, src1, src2);
-            }
-            static void gen_preshf_sub(TCGv dst, TCGv src1, TCGv src2)
-            {
-                tcg_gen_sub_tl(dst, src1, src2);
-            }
-            static void gen_preshf_add(TCGv dst, TCGv src1, TCGv src2)
-            {
-                tcg_gen_or_tl(dst, src1, src2);
-            }
-            static void gen_preshf_add(TCGv dst, TCGv src1, TCGv src2)
-            {
-                tcg_gen_xor_tl(dst, src1, src2);
-            }
-            static void gen_preshf_and(TCGv dst, TCGv src1, TCGv src2)
-            {
-                tcg_gen_and_tl(dst, src1, src2);
-            }
-            ```
+    GEN_TRANS_PRESHF(add)
+    GEN_TRANS_PRESHF(sub)
+    GEN_TRANS_PRESHF(or)
+    GEN_TRANS_PRESHF(xor)
+    GEN_TRANS_PRESHF(and)
+    ```
