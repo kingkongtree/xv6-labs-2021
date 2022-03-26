@@ -45,8 +45,8 @@
     - minimum_page_bits: 0
     - default_ram_size: 134217728
 ## 1.3 qemu_create_default_devices
-- add_device_config(DEV_PARALLEL, "null");
-- add_device_config(DEV_SERIAL, "mon:stdio");
+- add_device_config(DEV_PARALLEL, "null")
+- add_device_config(DEV_SERIAL, "mon:stdio")
 ## 1.4 qemu_create_early_backends
 - qemu_display_early_init
 - qemu_console_early_init
@@ -58,7 +58,7 @@
 - foreach_device_config(DEV_PARALLEL, parallel_parse)
 - foreach_device_config(DEV_DEBUGCON, debugcon_parse)
 - qemu_semihosting_console_init();
-## 1.6 qemu_resolve_machine_memdev();
+## 1.6 qemu_resolve_machine_memdev()
 ## 1.7 qmp_x_exit_preconfig
 ### 1.7.1 qemu_init_board
 #### 1.7.1.1 machine_run_board_init
@@ -92,7 +92,7 @@
 - init soc: hart,bus,CLINT,PLIC
 - RAM,Device tree,ROM,BIOS // 参数未指明BIOS，因此使用QEMU默认从0x80000000开始的加载方式
 - riscv_load_kernel(machine->kernel_filename, kernel_start_addr, NULL);
-    - kernel_start_addr: 2147483648 = 0x80000000, 即对应xv6的`0000000080000000 <_entry>:`
+    - kernel_start_addr: 2147483648 = 0x80000000, 即对应xv6的`0x80000000 <_entry>:`
     - load_elf_ram_sym -> load_elf32 -> glue
     - kernel_entry = 0x80000000
 - riscv_setup_rom_reset_vec // 将reset向量也指向0x80000000
