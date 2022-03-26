@@ -83,19 +83,26 @@
         ```
         @preshf     .. ..... ..... ..... ... ..... ....... &preshf      %shftype %shfamt %rs2 %rs1 %rd
         ```
-    - insn: 根据shfopc不同，同一format可以编码成不同指令
+    - insn: 根据shfopc不同，同一format可以编码成不同指令；同一arch下opc不能重叠。仅调试的话，改写opc为1111011
         ```
-        preshf_add  .. ..... ..... ..... 000 ..... 0011011 @preshf
-        preshf_sub  .. ..... ..... ..... 001 ..... 0011011 @preshf
-        preshf_or   .. ..... ..... ..... 010 ..... 0011011 @preshf
-        preshf_xor  .. ..... ..... ..... 011 ..... 0011011 @preshf
-        preshf_and  .. ..... ..... ..... 100 ..... 0011011 @preshf
+        add_preshf  .. ..... ..... ..... 000 ..... 1111011 @preshf
+        sub_preshf  .. ..... ..... ..... 001 ..... 1111011 @preshf
+        or_preshf   .. ..... ..... ..... 010 ..... 1111011 @preshf
+        xor_preshf  .. ..... ..... ..... 011 ..... 1111011 @preshf
+        and_preshf  .. ..... ..... ..... 100 ..... 1111011 @preshf
         ```
     - .decode: 定义一个新的独立的.decode文件
         - decodetree.py: python实现的对insn pattern->c的翻译
-            - to be implemented
-        - .meson: python的配置文件
-            - to be implemented
+            - getopt,解析入参。o-output，w-width
+            - parse_file，剔除注释，闭合括号，分别匹配field/arguments/format/pattern
+            - build_tree, 重建pattern间的关联，合法性及重复检查
+        - .meson: python的配置文件,指明指令宽度（映射成insnmask）
+            ```
+            gen = [
+                decodetree.process('insn16.decode', extra_args: ['--static-decode=decode_insn16', '--insnwidth=16']),
+                decodetree.process('insn32.decode', extra_args: '--static-decode=decode_insn32'),
+            ]
+            ```
 - 前端实现：c translate
     ```
     #define GEN_TRANS_PRESHF(SHFOPC)                                                    \
@@ -148,4 +155,34 @@
     GEN_TRANS_PRESHF(or)
     GEN_TRANS_PRESHF(xor)
     GEN_TRANS_PRESHF(and)
+    ```
+# 4. 通过gnu-as内联汇编构造用例
+    - [RISC-V Directives](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dDirectives.html#RISC_002dV_002dDirectives)
+    - [Instruction Formats](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dFormats.html#RISC_002dV_002dFormats) insn模板貌似仅限于RISCV呢，跟QEMU啥关系？
+    ```
+    // addshf,rd,rs1,rs2,sll #2 => asm (".insn r 0x7b, 0, 2, rd, rs1, rs2")
+    static int addsll_2(int rs1, int rs2)
+    {
+        int rd;
+        __asm__ __volatile__ (
+        ".insn r 0x7b, 0, 2, %[rd], %[rs1], %[rs2]"
+                :[rd]"=r"(rd)
+                :[rs1]"r"(rs1),[rs2]"r"(rs2)
+        );
+        
+        return rd; 
+    }
+
+    // orshf,rd,rs1,rs2,sra #4 => asm (".insn r 0x7b, 2, 20, rd, rs1, rs2")
+    static int orsra_4(int rs1, int rs2)
+    {
+        int rd;
+        __asm__ __volatile__ (
+        ".insn r 0x7b, 2, 20, %[rd], %[rs1], %[rs2]"
+                :[rd]"=r"(rd)
+                :[rs1]"r"(rs1),[rs2]"r"(rs2)
+        );
+        
+        return rd; 
+    }
     ```
