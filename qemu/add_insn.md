@@ -157,8 +157,8 @@
     GEN_TRANS_PRESHF(and)
     ```
 # 4. 通过gnu-as内联汇编构造用例
-    - [RISC-V Directives](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dDirectives.html#RISC_002dV_002dDirectives)
-    - [Instruction Formats](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dFormats.html#RISC_002dV_002dFormats) insn模板貌似仅限于RISCV呢，跟QEMU啥关系？
+- [RISC-V Directives](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dDirectives.html#RISC_002dV_002dDirectives)
+- [Instruction Formats](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dFormats.html#RISC_002dV_002dFormats) insn模板貌似仅限于RISCV呢，跟QEMU啥关系？
     ```
     // addshf,rd,rs1,rs2,sll #2 => asm (".insn r 0x7b, 0, 2, rd, rs1, rs2")
     static int addsll_2(int rs1, int rs2)
