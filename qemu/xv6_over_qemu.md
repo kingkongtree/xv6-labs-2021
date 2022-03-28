@@ -183,7 +183,7 @@
     - tb_lookup // 根据当前PC获取tb
         - PC: 0x1000(第二个页表？)->0x80000000<_entry>->0x8000562a<start>...
         - tb_gen_code // 如果当前指令第一次执行，先翻译成host insn
-        - cpu_loop_exec_tb->cpu_tb_exec->tcg_qemu_tb_exc->cpu_loop_exec_tb // 递归执行tb，
+        - cpu_loop_exec_tb->cpu_tb_exec->tcg_qemu_tb_exc,最终按qemu ir来执行
 
 ## 3.3 cpu_exec_end
     - 主要是为了实现smp的各种互斥去锁
