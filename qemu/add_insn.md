@@ -158,7 +158,7 @@
     ```
 # 4. 通过gnu-as内联汇编构造用例
 - [RISC-V Directives](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dDirectives.html#RISC_002dV_002dDirectives)
-- [Instruction Formats](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dFormats.html#RISC_002dV_002dFormats) insn模板貌似仅限于RISCV呢，跟QEMU啥关系？
+- [Instruction Formats](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dFormats.html#RISC_002dV_002dFormats) insn是gcc-riscv的俚语，qemu中也仅在RV中使用。
     ```
     // addshf,rd,rs1,rs2,sll #2 => asm (".insn r 0x7b, 0, 2, rd, rs1, rs2")
     static int addsll_2(int rs1, int rs2)
@@ -374,3 +374,29 @@
         return op_stm(s, a, 2);
     }
     ```
+# 7. PREFI/PREFD
+- nop
+```
+static bool trans_STM_t32(DisasContext *s, arg_ldst_block *a)
+{
+    /* prefetch instruction, is a nop instruction in model.  */
+    return true;
+}
+```
+# 8. L.LI
+- qemu内部的IR本身支持32bit立即数加载，trans函数仿照lui实现即可
+```
+static bool trans_l.li(DisasContext *ctx, arg_lui *a)
+{
+    if (a->rd != 0) {
+        tcg_gen_movi_tl(cpu_gpr[a->rd], a->imm);
+    }
+    return true;
+}
+```
+- decodetree.py对RX指令集支持24bit，使用参数--varinsnwidth定义即可。
+```
+gen = [
+  decodetree.process('insns.decode', extra_args: [ '--varinsnwidth', '32' ])
+]
+```
