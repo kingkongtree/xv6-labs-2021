@@ -545,3 +545,8 @@ static bool trans_PUSHM(DisasContext *ctx, arg_PUSHM *a)
     return true;
 }
 ```
+# 11. BXXI 参考BXX，参考LD-?LUI
+# 12. C.UXTB / C.UXTH 参考ARM UXTB/UXTH
+# 13. C.SH / C.LHU 参考RV32I SH/LHU
+# 14. MULTADD 参考RV32I MUL/ADD
+# 15. J16M / JAL16M 参考 RV32I JMP/JAL
