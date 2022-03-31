@@ -191,7 +191,7 @@
 - [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=) P155
 - [CSDN 介绍](https://www.cnblogs.com/lifexy/p/7363208.html)
 - ARM-QEMU实现
-    - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode & a32.decode)
+    - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode)
     ```
     &ldst_block      !extern rn i b u w list
     @ldstm           .... .... .. w:1 . rn:4 list:16              &ldst_block u=0
@@ -283,4 +283,94 @@
         /* BitCount(list) < 1 is UNPREDICTABLE */
         return do_ldm(s, a, 1);
     }
-        ```
+    ```
+# 6. STMIA
+- [STM-STMIA-STMEA--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/STM--STMIA--STMEA-)
+- [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=) P480
+- [CSDN 介绍](https://www.cnblogs.com/lifexy/p/7363208.html)
+- ARM-QEMU实现
+    - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode)
+    ```
+    &ldst_block      !extern rn i b u w list
+    @ldstm           .... .... .. w:1 . rn:4 list:16              &ldst_block u=0
+    STM_t32          1110 1000 10.0 .... ................         @ldstm i=1 b=0
+    STM_t32          1110 1001 00.0 .... ................         @ldstm i=0 b=1
+    ```
+    - [decodetree-a32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/a32.decode)
+    ```
+    &ldst_block      rn i b u w list
+    STM              ---- 100 b:1 i:1 u:1 w:1 0 rn:4 list:16   &ldst_block
+    ```
+    - [translate.c](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/translate.c)
+    ```
+    static bool op_stm(DisasContext *s, arg_ldst_block *a, int min_n)
+    {
+        int i, j, n, list, mem_idx;
+        bool user = a->u;
+        TCGv_i32 addr, tmp, tmp2;
+
+        if (user) {
+            /* STM (user) */
+            if (IS_USER(s)) {
+                /* Only usable in supervisor mode.  */
+                unallocated_encoding(s);
+                return true;
+            }
+        }
+
+        list = a->list;
+        n = ctpop16(list);
+        if (n < min_n || a->rn == 15) {
+            unallocated_encoding(s);
+            return true;
+        }
+
+        s->eci_handled = true;
+
+        addr = op_addr_block_pre(s, a, n);
+        mem_idx = get_mem_index(s);
+
+        for (i = j = 0; i < 16; i++) {
+            if (!(list & (1 << i))) {
+                continue;
+            }
+
+            if (user && i != 15) {
+                tmp = tcg_temp_new_i32();
+                tmp2 = tcg_const_i32(i);
+                gen_helper_get_user_reg(tmp, cpu_env, tmp2);
+                tcg_temp_free_i32(tmp2);
+            } else {
+                tmp = load_reg(s, i);
+            }
+            gen_aa32_st_i32(s, tmp, addr, mem_idx, MO_UL | MO_ALIGN);
+            tcg_temp_free_i32(tmp);
+
+            /* No need to add after the last transfer.  */
+            if (++j != n) {
+                tcg_gen_addi_i32(addr, addr, 4);
+            }
+        }
+
+        op_addr_block_post(s, a, addr, n);
+        clear_eci_state(s);
+        return true;
+    }
+
+    static bool trans_STM(DisasContext *s, arg_ldst_block *a)
+    {
+        /* BitCount(list) < 1 is UNPREDICTABLE */
+        return op_stm(s, a, 1);
+    }
+
+    static bool trans_STM_t32(DisasContext *s, arg_ldst_block *a)
+    {
+        /* Writeback register in register list is UNPREDICTABLE for T32.  */
+        if (a->w && (a->list & (1 << a->rn))) {
+            unallocated_encoding(s);
+            return true;
+        }
+        /* BitCount(list) < 2 is UNPREDICTABLE */
+        return op_stm(s, a, 2);
+    }
+    ```
