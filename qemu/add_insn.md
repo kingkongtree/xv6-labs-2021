@@ -377,7 +377,7 @@
 # 7. PREFI/PREFD
 - nop
 ```
-static bool trans_STM_t32(DisasContext *s, arg_ldst_block *a)
+static bool trans_prf(DisasContext *s, arg_ldst_block *a)
 {
     /* prefetch instruction, is a nop instruction in model.  */
     return true;
@@ -394,9 +394,41 @@ static bool trans_l.li(DisasContext *ctx, arg_lui *a)
     return true;
 }
 ```
-- decodetree.py对RX指令集支持24bit，使用参数--varinsnwidth定义即可。
+- decodetree.py支持变长指令，如RX指令集支持24bit，使用参数--varinsnwidth定义即可。
 ```
 gen = [
   decodetree.process('insns.decode', extra_args: [ '--varinsnwidth', '32' ])
 ]
+```
+# 9. C.LBU/C.SB
+- RV32I中对LB和LBU的trans函数实现一致, 同时C.LUI与LUI共用同一个trans函数(gen_load_tl不区分指令长度)
+```
+static bool gen_load_tl(DisasContext *ctx, arg_lb *a, MemOp memop)
+{
+    TCGv dest = dest_gpr(ctx, a->rd);
+    TCGv addr = get_address(ctx, a->rs1, a->imm);
+
+    tcg_gen_qemu_ld_tl(dest, addr, ctx->mem_idx, memop);
+    gen_set_gpr(ctx, a->rd, dest);
+    return true;
+}
+
+static bool gen_load(DisasContext *ctx, arg_lb *a, MemOp memop)
+{
+    if (get_xl(ctx) == MXL_RV128) {
+        return gen_load_i128(ctx, a, memop);
+    } else {
+        return gen_load_tl(ctx, a, memop);
+    }
+}
+
+static bool trans_lb(DisasContext *ctx, arg_lb *a)
+{
+    return gen_load(ctx, a, MO_SB);
+}
+
+static bool trans_lbu(DisasContext *ctx, arg_lbu *a)
+{
+    return gen_load(ctx, a, MO_UB);
+}
 ```
