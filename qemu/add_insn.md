@@ -432,3 +432,116 @@ static bool trans_lbu(DisasContext *ctx, arg_lbu *a)
     return gen_load(ctx, a, MO_UB);
 }
 ```
+# 10. C.POP/C.PUSH/C.POPRET
+- 参考RX ISA实现
+```
+static void push(TCGv val)
+{
+    tcg_gen_subi_i32(cpu_sp, cpu_sp, 4);
+    rx_gen_st(MO_32, val, cpu_sp);
+}
+
+static void pop(TCGv ret)
+{
+    rx_gen_ld(MO_32, ret, cpu_sp);
+    tcg_gen_addi_i32(cpu_sp, cpu_sp, 4);
+}
+
+/* pop rd */
+static bool trans_POP(DisasContext *ctx, arg_POP *a)
+{
+    /* mov.l [r0+], rd */
+    arg_MOV_rp mov_a;
+    mov_a.rd = 0;
+    mov_a.rs = a->rd;
+    mov_a.ad = 0;
+    mov_a.sz = MO_32;
+    trans_MOV_pr(ctx, &mov_a);
+    return true;
+}
+
+/* popc cr */
+static bool trans_POPC(DisasContext *ctx, arg_POPC *a)
+{
+    TCGv val;
+    val = tcg_temp_new();
+    pop(val);
+    move_to_cr(ctx, val, a->cr);
+    if (a->cr == 0 && is_privileged(ctx, 0)) {
+        /* PSW.I may be updated here. exit TB. */
+        ctx->base.is_jmp = DISAS_UPDATE;
+    }
+    tcg_temp_free(val);
+    return true;
+}
+
+/* popm rd-rd2 */
+static bool trans_POPM(DisasContext *ctx, arg_POPM *a)
+{
+    int r;
+    if (a->rd == 0 || a->rd >= a->rd2) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "Invalid  register ranges r%d-r%d", a->rd, a->rd2);
+    }
+    r = a->rd;
+    while (r <= a->rd2 && r < 16) {
+        pop(cpu_regs[r++]);
+    }
+    return true;
+}
+
+
+/* push.<bwl> rs */
+static bool trans_PUSH_r(DisasContext *ctx, arg_PUSH_r *a)
+{
+    TCGv val;
+    val = tcg_temp_new();
+    tcg_gen_mov_i32(val, cpu_regs[a->rs]);
+    tcg_gen_subi_i32(cpu_sp, cpu_sp, 4);
+    rx_gen_st(a->sz, val, cpu_sp);
+    tcg_temp_free(val);
+    return true;
+}
+
+/* push.<bwl> dsp[rs] */
+static bool trans_PUSH_m(DisasContext *ctx, arg_PUSH_m *a)
+{
+    TCGv mem, val, addr;
+    mem = tcg_temp_new();
+    val = tcg_temp_new();
+    addr = rx_index_addr(ctx, mem, a->ld, a->sz, a->rs);
+    rx_gen_ld(a->sz, val, addr);
+    tcg_gen_subi_i32(cpu_sp, cpu_sp, 4);
+    rx_gen_st(a->sz, val, cpu_sp);
+    tcg_temp_free(mem);
+    tcg_temp_free(val);
+    return true;
+}
+
+/* pushc rx */
+static bool trans_PUSHC(DisasContext *ctx, arg_PUSHC *a)
+{
+    TCGv val;
+    val = tcg_temp_new();
+    move_from_cr(val, a->cr, ctx->pc);
+    push(val);
+    tcg_temp_free(val);
+    return true;
+}
+
+/* pushm rs-rs2 */
+static bool trans_PUSHM(DisasContext *ctx, arg_PUSHM *a)
+{
+    int r;
+
+    if (a->rs == 0 || a->rs >= a->rs2) {
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "Invalid  register ranges r%d-r%d", a->rs, a->rs2);
+    }
+    r = a->rs2;
+    while (r >= a->rs && r >= 0) {
+        push(cpu_regs[r--]);
+    }
+    return true;
+}
+```
