@@ -186,3 +186,101 @@
         return rd; 
     }
     ```
+# 5. LDMIA
+- [LDM-LDMIA-LDMFD--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/LDM-LDMIA-LDMFD--Thumb-)
+- [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=) P155
+- [CSDN 介绍](https://www.cnblogs.com/lifexy/p/7363208.html)
+- ARM-QEMU实现
+    - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode & a32.decode)
+    ```
+    &ldst_block      !extern rn i b u w list
+    @ldstm           .... .... .. w:1 . rn:4 list:16              &ldst_block u=0
+    {
+      # Rn=15 UNDEFs for LDM; M-profile CLRM uses that encoding
+      CLRM           1110 1000 1001 1111 list:16
+      LDM_t32        1110 1000 10.1 .... ................         @ldstm i=1 b=0
+    }
+    LDM_t32          1110 1001 00.1 .... ................         @ldstm i=0 b=1
+    ```
+    - [decodetree-a32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/a32.decode)
+    ```
+    &ldst_block      rn i b u w list
+    LDM_a32          ---- 100 b:1 i:1 u:1 w:1 1 rn:4 list:16   &ldst_block
+    ```
+    - [translate.c](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/translate.c)
+    ```
+    static bool trans_CLRM(DisasContext *s, arg_CLRM *a)
+    {
+        int i;
+        TCGv_i32 zero;
+
+        if (!dc_isar_feature(aa32_m_sec_state, s)) {
+            return false;
+        }
+
+        if (extract32(a->list, 13, 1)) {
+            return false;
+        }
+
+        if (!a->list) {
+            /* UNPREDICTABLE; we choose to UNDEF */
+            return false;
+        }
+
+        s->eci_handled = true;
+
+        zero = tcg_const_i32(0);
+        for (i = 0; i < 15; i++) {
+            if (extract32(a->list, i, 1)) {
+                /* Clear R[i] */
+                tcg_gen_mov_i32(cpu_R[i], zero);
+            }
+        }
+        if (extract32(a->list, 15, 1)) {
+            /*
+             * Clear APSR (by calling the MSR helper with the same argument
+             * as for "MSR APSR_nzcvqg, Rn": mask = 0b1100, SYSM=0)
+             */
+            TCGv_i32 maskreg = tcg_const_i32(0xc << 8);
+            gen_helper_v7m_msr(cpu_env, maskreg, zero);
+            tcg_temp_free_i32(maskreg);
+        }
+        tcg_temp_free_i32(zero);
+        clear_eci_state(s);
+        return true;
+    }
+
+    static bool trans_LDM_a32(DisasContext *s, arg_ldst_block *a)
+    {
+        /*
+         * Writeback register in register list is UNPREDICTABLE
+         * for ArchVersion() >= 7.  Prior to v7, A32 would write
+         * an UNKNOWN value to the base register.
+         */
+        if (ENABLE_ARCH_7 && a->w && (a->list & (1 << a->rn))) {
+            unallocated_encoding(s);
+            return true;
+        }
+        /* BitCount(list) < 1 is UNPREDICTABLE */
+        return do_ldm(s, a, 1);
+    }
+
+    static bool trans_LDM_t32(DisasContext *s, arg_ldst_block *a)
+    {
+        /* Writeback register in register list is UNPREDICTABLE for T32. */
+        if (a->w && (a->list & (1 << a->rn))) {
+            unallocated_encoding(s);
+            return true;
+        }
+        /* BitCount(list) < 2 is UNPREDICTABLE */
+        return do_ldm(s, a, 2);
+    }
+
+    static bool trans_LDM_t16(DisasContext *s, arg_ldst_block *a)
+    {
+        /* Writeback is conditional on the base register not being loaded.  */
+        a->w = !(a->list & (1 << a->rn));
+        /* BitCount(list) < 1 is UNPREDICTABLE */
+        return do_ldm(s, a, 1);
+    }
+        ```
