@@ -200,6 +200,15 @@ init: starting sh
         decodetree.process('tree16.decode', extra_args: ['--static-decode=decode_tree16', '--insnwidth=16']),
         decodetree.process('tree32.decode', extra_args: '--static-decode=decode_tree32'),
         ```
+    - ./target/tree/translate.c
+        ```
+        #include "decode-tree16.c.inc"
+        #include "decode-tree32.c.inc"
+        #include "insn_trans/trans_tree.c.inc"
+        ```
+        - decode_opc
+            - decode_insn16 -> decode_tree16
+            - decode_insn32 -> decode_tree32
     - ./target/tree/insn_trans/trans_tree.c.inc
         > 在这里实现私有指令的trans_**函数
 - 新增 trans_tree.c.inc

@@ -5,7 +5,7 @@ static int addsll_2(int rs1, int rs2)
 {
     int rd;
     __asm__ __volatile__ (
-       ".insn r 0x7b, 0, 2, %[rd], %[rs1], %[rs2]"
+       ".insn r 0x1b, 0, 2, %[rd], %[rs1], %[rs2]"
              :[rd]"=r"(rd)
              :[rs1]"r"(rs1),[rs2]"r"(rs2)
      );
@@ -17,7 +17,7 @@ static int orsra_4(int rs1, int rs2)
 {
     int rd;
     __asm__ __volatile__ (
-       ".insn r 0x7b, 2, 20, %[rd], %[rs1], %[rs2]"
+       ".insn r 0x1b, 2, 20, %[rd], %[rs1], %[rs2]"
              :[rd]"=r"(rd)
              :[rs1]"r"(rs1),[rs2]"r"(rs2)
      );
