@@ -83,7 +83,7 @@ TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' 
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-QEMU = /Users/kingkongtree/code/simulation/qemu-6.1.0/build/qemu-system-riscv64
+QEMU = /Users/kingkongtree/code/simulation/qemu-6.1.0/build/qemu-system-tree
 
 CC = $(TOOLPREFIX)gcc
 AS = $(TOOLPREFIX)gas

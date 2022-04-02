@@ -22,7 +22,7 @@
     - reverse dependencies: select <symbol> [if <expr>]，反向依赖
     - default value: default <value> [if <expr>]，默认值
     - imply <symbol> [if <expr>]，弱反向依赖
-# 3. Add RISC-V gitlab新增RISC-V的关键合入
+# 3. Add TREE Arch
 ## 3.1 [RISC-V Build Infrastructure](https://gitlab.com/qemu-project/qemu/-/commit/25fa194b7b11901561532e435beb83d046899f7a)
 - configure:
     - TARGET_BASE_ARCH/TARGET_ABI_DIR/MTTCG：
@@ -39,7 +39,6 @@
     > 新版本在/target/meson.config中通过subdir定义，无需更改
 ----
 > 以下是具体实现tree指令集
-----
 - ./meson.build
     ```
     supported_cpus = [..., 'tree']
@@ -79,6 +78,7 @@
         subdir('tree')
         ```
     - ./target/tree：整体从riscv复制，并做以下修改
+        - TARGET_RISCV64 -> TARGET_TREE
         - ./target/tree/Kconfig
             ```
             config TREE
@@ -91,8 +91,9 @@
             target_arch += {'tree': tree_ss}
             target_softmmu_arch += {'tree': tree_softmmu_ss}
             ```
-        - ./target/tree/cpu-param.h
-            - TARGET_RISCV32 -> TARGET_TREE
+        - ./target/tree/cpu.c
+            - riscv_cpu_disas_set_info
+            > 注释对 print_insn_riscv32 的引用
 - ./hw
     - ./hw/Kconfig
         ```
@@ -117,10 +118,7 @@ build % ./qemu-system-tree -M help
 Supported machines are:
 none                 empty machine
 ```
-----
-
-- 具体修改参考
-## 3.2 [RISC-V Spike Machines](https://gitlab.com/qemu-project/qemu/-/commit/5b4beba1246ff163415bde41cd76935012b16823)
+## 3.2 [RISC-V VirtIO Machine](https://gitlab.com/qemu-project/qemu/-/commit/04331d0b56a0cab2e40a39135a92a15266b37c36)
 - TypeInfo *_cpu_type_infos
 - *_cpu_class_init
 - *_cpu_realize
@@ -132,6 +130,64 @@ none                 empty machine
     - Kconfig
     - *_machine_class_init
     - *_board_init
+----
+> 实现 tree virtIO machine
+- ./hw/tree/Kconfig
+    ```
+    config RISCV_NUMA
+        bool
+
+    config RISCV_VIRT
+        bool
+        imply PCI_DEVICES
+        imply VIRTIO_VGA
+        imply TEST_DEVICES
+        select RISCV_NUMA
+        select GOLDFISH_RTC
+        select MSI_NONBROKEN
+        select PCI
+        select PCI_EXPRESS_GENERIC_BRIDGE
+        select PFLASH_CFI01
+        select SERIAL
+        select SIFIVE_CLINT
+        select SIFIVE_PLIC
+        select SIFIVE_TEST
+        select VIRTIO_MMIO
+        select FW_CFG_DMA
+    ```
+- ./hw/tree/meson.build
+    ```
+    tree_ss.add(files('boot.c'), fdt)
+    tree_ss.add(files('riscv_hart.c'))
+    tree_ss.add(when: 'CONFIG_RISCV_NUMA', if_true: files('numa.c'))
+    tree_ss.add(when: 'CONFIG_RISCV_VIRT', if_true: files('virt.c'))
+    ```
+- ./hw/tree/*.c
+    - ./hw/riscv/boot.c +-> ./hw/tree/boot.c
+    - ./hw/riscv/riscv_hart.c +-> ./hw/tree/riscv_hart.c
+    - ./hw/riscv/numa.c +-> ./hw/tree/numa.c
+    - ./hw/riscv/virt.c +-> ./hw/tree/virt.c
+    ```
+    #include "target/tree/cpu.h"
+    ```
+----
+> 验证
+```
+ build % ./qemu-system-tree -M help                       
+Supported machines are:
+none                 empty machine
+virt                 RISC-V VirtIO board
+```
+> 仿真运行xv6
+```
+/Users/kingkongtree/code/simulation/qemu-6.1.0/build/qemu-system-tree -machine virt -bios none -kernel kernel/kernel -m 128M -smp 3 -nographic -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+
+xv6 kernel is booting
+
+hart 1 starting
+hart 2 starting
+init: starting sh
+```
 ## 3.3 [RISC-V ELF Machine Definition](https://gitlab.com/qemu-project/qemu/-/commit/f71a8eaffba3271cf7cdad95572f6996f7523a5b)
 ## 3.4 [RISCV-QEMU v8.2 upstream](https://gitlab.com/qemu-project/qemu/-/commit/d9bbfea646e86426d549bd612cd9f91e49aa50c2)
 ## 3.5 [Create a SiFive E SoC object](https://gitlab.com/qemu-project/qemu/-/commit/651cd8b7e18eda46a36cf073428452d04bb354f2)
