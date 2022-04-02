@@ -28,12 +28,14 @@
     - [nuclei e200](https://github.com/SI-RISCV/e200_opensource)
     - [nutshell](https://github.com/OSCPU/NutShell)
 # 3. vscode配置调试
+- [新增arch](https://github.com/kingkongtree/xv6-labs-2021/blob/main/qemu/add_arch.md)
+- [xv6 over qemu分析](https://github.com/kingkongtree/xv6-labs-2021/blob/main/qemu/xv6_over_qemu.md)
 - task.json
     ```
         {
             "label": "build",
             "type": "shell",
-            "command": "cd build; ../configure --enable-debug --target-list=riscv64-softmmu; make -j8",
+            "command": "cd build; ../configure --enable-debug --target-list=tree-softmmu; make -j8",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -46,7 +48,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug xv6",
-            "program": "${workspaceFolder}/build/qemu-system-riscv64",
+            "program": "${workspaceFolder}/build/qemu-system-tree",
             "args": [
                 "-machine", "virt",
                 "-bios", "none",
@@ -83,7 +85,8 @@
         ```
         @preshf     .. ..... ..... ..... ... ..... ....... &preshf      %shftype %shfamt %rs2 %rs1 %rd
         ```
-    - insn: 根据shfopc不同，同一format可以编码成不同指令；同一arch下opc不能重叠。仅调试的话，改写opc为1111011
+    - insn: 根据shfopc不同，同一format可以编码成不同指令；
+        同一arch下opc不能重叠。仅调试的话，改写opc为1111011
         ```
         add_preshf  .. ..... ..... ..... 000 ..... 1111011 @preshf
         sub_preshf  .. ..... ..... ..... 001 ..... 1111011 @preshf

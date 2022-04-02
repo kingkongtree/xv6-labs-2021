@@ -192,6 +192,17 @@ init: starting sh
 ## 3.4 [RISCV-QEMU v8.2 upstream](https://gitlab.com/qemu-project/qemu/-/commit/d9bbfea646e86426d549bd612cd9f91e49aa50c2)
 ## 3.5 [Create a SiFive E SoC object](https://gitlab.com/qemu-project/qemu/-/commit/651cd8b7e18eda46a36cf073428452d04bb354f2)
 ## 3.6 [Activate decodetree and implemnt LUI & AUIPC](https://gitlab.com/qemu-project/qemu/-/commit/2a53cff418335ccb4719e9a94fde55f6ebcc895d)
+- 新增 tree.decode
+    - ./target/riscv/insn32.decode +-> ./target/tree/tree32.decode
+    - ./target/riscv/insn16.decode +-> ./target/tree/tree16.decode
+    - ./target/tree/meson.build
+        ```
+        decodetree.process('tree16.decode', extra_args: ['--static-decode=decode_tree16', '--insnwidth=16']),
+        decodetree.process('tree32.decode', extra_args: '--static-decode=decode_tree32'),
+        ```
+    - ./target/tree/insn_trans/trans_tree.c.inc
+        > 在这里实现私有指令的trans_**函数
+- 新增 trans_tree.c.inc
 ## 3.7 [Split RVC32 and RVC64 insns into separate files](https://gitlab.com/qemu-project/qemu/-/commit/0e68e240a9bd3b44a91cd6012f0e2bf2a43b9fe2)
 ## 3.8 [Add a base 32 and 64 bit CPU](https://gitlab.com/qemu-project/qemu/-/commit/8903bf6e6d73d03b988b4a8197132de2ad681ff5)
 ## 3.9 [Add OpenSBI version 0.4](https://gitlab.com/qemu-project/qemu/-/commit/91f3a2f0ce59cb621630bd224f634955222fc3e0)

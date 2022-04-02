@@ -28,22 +28,6 @@
 %rm     12:3
 %nf     29:3                     !function=ex_plus_1
 
-# BEG: shfxxx for linx131
-%shftype    30:2
-%shfamt     25:5
-
-&preshf     rd rs1 rs2 shftype shfamt
-
-@preshf     .. ..... ..... ..... ... ..... ....... &preshf      %shftype %shfamt %rs2 %rs1 %rd
-
-add_preshf  .. ..... ..... ..... 000 ..... 1111011 @preshf
-sub_preshf  .. ..... ..... ..... 001 ..... 1111011 @preshf
-or_preshf   .. ..... ..... ..... 010 ..... 1111011 @preshf
-xor_preshf  .. ..... ..... ..... 011 ..... 1111011 @preshf
-and_preshf  .. ..... ..... ..... 100 ..... 1111011 @preshf
-# END
-
-
 # immediates:
 %imm_i    20:s12
 %imm_s    25:s7 7:5

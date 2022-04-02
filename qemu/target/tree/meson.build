@@ -4,6 +4,8 @@ dir = meson.current_source_dir()
 gen = [
   decodetree.process('insn16.decode', extra_args: ['--static-decode=decode_insn16', '--insnwidth=16']),
   decodetree.process('insn32.decode', extra_args: '--static-decode=decode_insn32'),
+  decodetree.process('tree16.decode', extra_args: ['--static-decode=decode_tree16', '--insnwidth=16']),
+  decodetree.process('tree32.decode', extra_args: '--static-decode=decode_tree32'),
 ]
 
 tree_ss = ss.source_set()
