@@ -3,6 +3,18 @@
     - [intro README](https://gitlab.com/qemu-project/qemu/-/blob/master/tcg/README) 概述
     - [docs/devel/tcg.rst](https://gitlab.com/qemu-project/qemu/-/blob/master/docs/devel/tcg.rst) 语法、基础ir
     - [decodetree](https://gitlab.com/qemu-project/qemu/-/blob/master/docs/devel/decodetree.rst) 指令格式的抽象描述，pattern
+        - .decode: 定义一个新的独立的.decode文件
+        - decodetree.py: python实现的对insn pattern->c的翻译
+            - getopt,解析入参。o-output，w-width
+            - parse_file，剔除注释，闭合括号，分别匹配field/arguments/format/pattern
+            - build_tree, 重建pattern间的关联，合法性及重复检查
+        - .meson: python的配置文件,指明指令宽度（映射成insnmask）
+            ```
+            gen = [
+                decodetree.process('insn16.decode', extra_args: ['--static-decode=decode_insn16', '--insnwidth=16']),
+                decodetree.process('insn32.decode', extra_args: '--static-decode=decode_insn32'),
+            ]
+            ```
     - [backend ops](https://wiki.qemu.org/Documentation/TCG/backend-ops) qemu官方定义的原子指令，后端表示即IR
     - [frontend ops](https://wiki.qemu.org/Documentation/TCG/frontend-ops) 后端op的C表示
 - [riscv-isa-manual](https://github.com/riscv/riscv-isa-manual)
@@ -110,18 +122,6 @@
         xor_preshf  .. ..... ..... ..... 011 ..... 0011011 @preshf
         and_preshf  .. ..... ..... ..... 100 ..... 0011011 @preshf
         ```
-    - .decode: 定义一个新的独立的.decode文件
-        - decodetree.py: python实现的对insn pattern->c的翻译
-            - getopt,解析入参。o-output，w-width
-            - parse_file，剔除注释，闭合括号，分别匹配field/arguments/format/pattern
-            - build_tree, 重建pattern间的关联，合法性及重复检查
-        - .meson: python的配置文件,指明指令宽度（映射成insnmask）
-            ```
-            gen = [
-                decodetree.process('insn16.decode', extra_args: ['--static-decode=decode_insn16', '--insnwidth=16']),
-                decodetree.process('insn32.decode', extra_args: '--static-decode=decode_insn32'),
-            ]
-            ```
 - 前端实现：c translate
     ```
     #define GEN_TRANS_PRESHF(SHFOPC)                                                    \
@@ -263,63 +263,64 @@
     - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode)
     - [decodetree-a32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/a32.decode)
     - [translate.c](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/translate.c)
-----
-```
-%ldm_e      31:1
-%gpr_mask   20:11 7:5
+- 实现
+    ```
+    %ldm_e      31:1
+    %gpr_mask   20:11 7:5
 
-&ldm    ldm_e rs1 gpr_mask
-@ldm    . ........... ..... ... ..... ....... &ldm  %ldm_e %gpr_mask %rs1
+    &ldm    ldm_e rs1 gpr_mask
+    @ldm    . ........... ..... ... ..... ....... &ldm  %ldm_e %gpr_mask %rs1
 
-ldmia   . ........... ..... 000 ..... 0001011 @ldm
+    ldmia   . ........... ..... 000 ..... 0001011 @ldm
 
-static bool trans_ldmia(DisasContext *s, arg_ldmia *a)
-{
-    int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
-    int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
-    int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
-    unsigned int mask = a->gpr_mask;
+    static bool trans_ldmia(DisasContext *s, arg_ldmia *a)
+    {
+        int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
+        int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
+        int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
+        unsigned int mask = a->gpr_mask;
 
-    TCGv target_mem_addr = tcg_temp_new();
-    TCGv src_reg_index = tcg_temp_new();
+        TCGv target_mem_addr = tcg_temp_new();
+        TCGv src_reg_index = tcg_temp_new();
 
-    gen_get_gpr(target_mem_addr, a->rs1);
+        gen_get_gpr(target_mem_addr, a->rs1);
 
-    for (int i = 0; i < 16; ++i) {
-        if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
-        if (!(mask & (1 << i))) continue; // check if masked
-        tcg_gen_qemu_ld_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_ld
-        gen_set_gpr(reg_list[i], src_reg_index);
-        tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8);
+        for (int i = 0; i < 16; ++i) {
+            if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
+            if (!(mask & (1 << i))) continue; // check if masked
+            tcg_gen_qemu_ld_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_ld
+            gen_set_gpr(reg_list[i], src_reg_index);
+            tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8);
+        }
+
+        tcg_temp_free(target_mem_addr);
+        tcg_temp_free(src_reg_index);
+
+        return true;
     }
+    ```
+- 验证
+    ```
+    /*
+    * ldmia: 
+    * +---+---------------+------+-----+-----------+---------+
+    * | e | mask[15:5]    | rs1  | 000 | mask[4:0] | 0001011 |
+    * +---+---------------+------+-----+-----------+---------+
+    * 31  30              19     14    11          6         0
+    */
+    static inline void ldmia_sp(void)
+    {
+        printf("==> ldmia-callee {x8-x9, x18-x27}, (sp)\n");
 
-    tcg_temp_free(target_mem_addr);
-    tcg_temp_free(src_reg_index);
+        print_gprs();
 
-    return true;
-}
-```
-----
-````
-/*
- * ldmia: 
- * +---+---------------+------+-----+-----------+---------+
- * | e | mask[15:5]    | rs1  | 000 | mask[4:0] | 0001011 |
- * +---+---------------+------+-----+-----------+---------+
- * 31  30              19     14    11          6         0
- */
-static inline void ldmia_sp(void)
-{
-    printf("==> ldmia-callee {x8-x9, x18-x27}, (sp)\n");
+        // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
+        printf("==> cpu-exec 0x%x\n", 0x0ff10f0b);
+        INSN(0x0ff10f0b)
 
-    print_gprs();
-
-    // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
-    printf("==> cpu-exec 0x%x\n", 0x0ff10f0b);
-    INSN(0x0ff10f0b)
-
-    print_gprs();
-}
+        print_gprs();
+    }
+    ```
 # 6. STMIA
 - [STM-STMIA-STMEA--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/STM--STMIA--STMEA-)
 - [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=) P480
@@ -328,62 +329,62 @@ static inline void ldmia_sp(void)
     - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode)
     - [decodetree-a32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/a32.decode)
     - [translate.c](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/translate.c)
-----
-```
-stmia   . ........... ..... 001 ..... 0001011 @ldm
+- 实现
+    ```
+    stmia   . ........... ..... 001 ..... 0001011 @ldm
 
-static bool trans_stmia(DisasContext *s, arg_stmia *a)
-{
-    int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
-    int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
-    int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
-    unsigned int mask = a->gpr_mask;
+    static bool trans_stmia(DisasContext *s, arg_stmia *a)
+    {
+        int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
+        int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
+        int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
+        unsigned int mask = a->gpr_mask;
 
-    TCGv target_mem_addr = tcg_temp_new();
-    TCGv src_reg_index;
+        TCGv target_mem_addr = tcg_temp_new();
+        TCGv src_reg_index;
 
-    gen_get_gpr(target_mem_addr, a->rs1);
+        gen_get_gpr(target_mem_addr, a->rs1);
 
-    for (int i = 0; i < 16; ++i) {
-        if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
-        if (!(mask & (1 << i))) continue; // check if masked
+        for (int i = 0; i < 16; ++i) {
+            if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
+            if (!(mask & (1 << i))) continue; // check if masked
 
-        src_reg_index = tcg_temp_new(); // renew temp once
+            src_reg_index = tcg_temp_new(); // renew temp once
 
-        gen_get_gpr(src_reg_index, reg_list[i]);
-        tcg_gen_qemu_st_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_sd
-        tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8); // 64bit / 8 = 8
-    
-        tcg_temp_free(src_reg_index);
+            gen_get_gpr(src_reg_index, reg_list[i]);
+            tcg_gen_qemu_st_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_sd
+            tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8); // 64bit / 8 = 8
+        
+            tcg_temp_free(src_reg_index);
+        }
+
+        tcg_temp_free(target_mem_addr);
+
+        return true;
     }
+    ```
+- 验证
+    ```
+    /*
+    * stmia: 
+    * +---+---------------+------+-----+-----------+---------+
+    * | e | mask[15:5]    | rs1  | 001 | mask[4:0] | 0001011 |
+    * +---+---------------+------+-----+-----------+---------+
+    * 31  30              19     14    11          6         0
+    */
+    static inline void stmia_sp(void)
+    {
+        printf("==> stmia-callee {x8-x9, x18-x27}, (sp)\n");
 
-    tcg_temp_free(target_mem_addr);
+        print_gprs();
 
-    return true;
-}
-```
-----
-```
-/*
- * stmia: 
- * +---+---------------+------+-----+-----------+---------+
- * | e | mask[15:5]    | rs1  | 001 | mask[4:0] | 0001011 |
- * +---+---------------+------+-----+-----------+---------+
- * 31  30              19     14    11          6         0
- */
-static inline void stmia_sp(void)
-{
-    printf("==> stmia-callee {x8-x9, x18-x27}, (sp)\n");
+        // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
+        printf("==> cpu-exec 0x%x\n", 0x0ff11f0b);
+        INSN(0x0ff11f0b)
 
-    print_gprs();
-
-    // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
-    printf("==> cpu-exec 0x%x\n", 0x0ff11f0b);
-    INSN(0x0ff11f0b)
-
-    print_gprs();
-}
-```
+        print_gprs();
+    }
+    ```
 # 7. PREFI/PREFD
 - nop
 ```
