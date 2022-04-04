@@ -105,6 +105,10 @@
           slli_uw     00001. ........... 001 ..... 0011011 @sh
           sub_preshf  .. ..... ..... ..... 001 ..... 0011011 @preshf
         }
+
+        or_preshf   .. ..... ..... ..... 010 ..... 0011011 @preshf
+        xor_preshf  .. ..... ..... ..... 011 ..... 0011011 @preshf
+        and_preshf  .. ..... ..... ..... 100 ..... 0011011 @preshf
         ```
     - .decode: 定义一个新的独立的.decode文件
         - decodetree.py: python实现的对insn pattern->c的翻译
@@ -200,6 +204,56 @@
         
         return rd; 
     }
+
+    #define INSN(value)                             \
+        __asm__ __volatile__ (".word "#value);      \
+
+    void print_gprs(void)
+    {
+        register int x0 asm("zero");
+        register int x1 asm("ra");
+        register int x2 asm("sp");
+        register int x3 asm("gp");
+        register int x4 asm("tp");
+        register int x5 asm("t0");
+        register int x6 asm("t1");
+        register int x7 asm("t2");
+        register int x8 asm("s0");
+        register int x9 asm("s1");
+        register int x10 asm("a0");
+        register int x11 asm("a1");
+        register int x12 asm("a2");
+        register int x13 asm("a3");
+        register int x14 asm("a4");
+        register int x15 asm("a5");
+        register int x16 asm("a6");
+        register int x17 asm("a7");
+        register int x18 asm("s2");
+        register int x19 asm("s3");
+        register int x20 asm("s4");
+        register int x21 asm("s5");
+        register int x22 asm("s6");
+        register int x23 asm("s7");
+        register int x24 asm("s8");
+        register int x25 asm("s9");
+        register int x26 asm("s10");
+        register int x27 asm("s11");
+        register int x28 asm("t3");
+        register int x29 asm("t4");
+        register int x30 asm("t5");
+        register int x31 asm("t6");
+
+        printf("system regs: \n - x0=zero= %d\n - x3=gp= 0x%x\n - x4=tp= 0x%x\n",
+                x0, x3, x4);
+
+        printf("caller regs: \n - x1=ra= 0x%x\n - x5:7=t0:2= %d, %d, %d\n - x28:31=t3:6= %d, %d, %d, %d\n",
+                x1, x5, x6, x7, x28, x29, x30, x31);
+        printf("callee regs: \n - x10:17=a0:7= %d, %d, %d, %d, %d, %d, %d, %d\n",
+                x10, x11, x12, x13, x14, x15, x16, x17);
+
+        printf("callee regs: \n - x2=sp= 0x%x\n - x8=fp= 0x%x\n - x9=s1= %d\n - x18:x27=s2:11= %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
+                x2, x8, x9, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27);
+    }
     ```
 # 5. LDMIA
 - [LDM-LDMIA-LDMFD--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/LDM-LDMIA-LDMFD--Thumb-)
@@ -207,188 +261,129 @@
 - [CSDN 介绍](https://www.cnblogs.com/lifexy/p/7363208.html)
 - ARM-QEMU实现
     - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode)
-    ```
-    &ldst_block      !extern rn i b u w list
-    @ldstm           .... .... .. w:1 . rn:4 list:16              &ldst_block u=0
-    {
-      # Rn=15 UNDEFs for LDM; M-profile CLRM uses that encoding
-      CLRM           1110 1000 1001 1111 list:16
-      LDM_t32        1110 1000 10.1 .... ................         @ldstm i=1 b=0
-    }
-    LDM_t32          1110 1001 00.1 .... ................         @ldstm i=0 b=1
-    ```
     - [decodetree-a32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/a32.decode)
-    ```
-    &ldst_block      rn i b u w list
-    LDM_a32          ---- 100 b:1 i:1 u:1 w:1 1 rn:4 list:16   &ldst_block
-    ```
     - [translate.c](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/translate.c)
-    ```
-    static bool trans_CLRM(DisasContext *s, arg_CLRM *a)
-    {
-        int i;
-        TCGv_i32 zero;
+----
+```
+%ldm_e      31:1
+%gpr_mask   20:11 7:5
 
-        if (!dc_isar_feature(aa32_m_sec_state, s)) {
-            return false;
-        }
+&ldm    ldm_e rs1 gpr_mask
+@ldm    . ........... ..... ... ..... ....... &ldm  %ldm_e %gpr_mask %rs1
 
-        if (extract32(a->list, 13, 1)) {
-            return false;
-        }
+ldmia   . ........... ..... 000 ..... 0001011 @ldm
 
-        if (!a->list) {
-            /* UNPREDICTABLE; we choose to UNDEF */
-            return false;
-        }
+static bool trans_ldmia(DisasContext *s, arg_ldmia *a)
+{
+    int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
+    int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
+    int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
+    unsigned int mask = a->gpr_mask;
 
-        s->eci_handled = true;
+    TCGv target_mem_addr = tcg_temp_new();
+    TCGv src_reg_index = tcg_temp_new();
 
-        zero = tcg_const_i32(0);
-        for (i = 0; i < 15; i++) {
-            if (extract32(a->list, i, 1)) {
-                /* Clear R[i] */
-                tcg_gen_mov_i32(cpu_R[i], zero);
-            }
-        }
-        if (extract32(a->list, 15, 1)) {
-            /*
-             * Clear APSR (by calling the MSR helper with the same argument
-             * as for "MSR APSR_nzcvqg, Rn": mask = 0b1100, SYSM=0)
-             */
-            TCGv_i32 maskreg = tcg_const_i32(0xc << 8);
-            gen_helper_v7m_msr(cpu_env, maskreg, zero);
-            tcg_temp_free_i32(maskreg);
-        }
-        tcg_temp_free_i32(zero);
-        clear_eci_state(s);
-        return true;
+    gen_get_gpr(target_mem_addr, a->rs1);
+
+    for (int i = 0; i < 16; ++i) {
+        if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
+        if (!(mask & (1 << i))) continue; // check if masked
+        tcg_gen_qemu_ld_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_ld
+        gen_set_gpr(reg_list[i], src_reg_index);
+        tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8);
     }
 
-    static bool trans_LDM_a32(DisasContext *s, arg_ldst_block *a)
-    {
-        /*
-         * Writeback register in register list is UNPREDICTABLE
-         * for ArchVersion() >= 7.  Prior to v7, A32 would write
-         * an UNKNOWN value to the base register.
-         */
-        if (ENABLE_ARCH_7 && a->w && (a->list & (1 << a->rn))) {
-            unallocated_encoding(s);
-            return true;
-        }
-        /* BitCount(list) < 1 is UNPREDICTABLE */
-        return do_ldm(s, a, 1);
-    }
+    tcg_temp_free(target_mem_addr);
+    tcg_temp_free(src_reg_index);
 
-    static bool trans_LDM_t32(DisasContext *s, arg_ldst_block *a)
-    {
-        /* Writeback register in register list is UNPREDICTABLE for T32. */
-        if (a->w && (a->list & (1 << a->rn))) {
-            unallocated_encoding(s);
-            return true;
-        }
-        /* BitCount(list) < 2 is UNPREDICTABLE */
-        return do_ldm(s, a, 2);
-    }
+    return true;
+}
+```
+----
+````
+/*
+ * ldmia: 
+ * +---+---------------+------+-----+-----------+---------+
+ * | e | mask[15:5]    | rs1  | 000 | mask[4:0] | 0001011 |
+ * +---+---------------+------+-----+-----------+---------+
+ * 31  30              19     14    11          6         0
+ */
+static inline void ldmia_sp(void)
+{
+    printf("==> ldmia-callee {x8-x9, x18-x27}, (sp)\n");
 
-    static bool trans_LDM_t16(DisasContext *s, arg_ldst_block *a)
-    {
-        /* Writeback is conditional on the base register not being loaded.  */
-        a->w = !(a->list & (1 << a->rn));
-        /* BitCount(list) < 1 is UNPREDICTABLE */
-        return do_ldm(s, a, 1);
-    }
-    ```
+    print_gprs();
+
+    // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
+    printf("==> cpu-exec 0x%x\n", 0x0ff10f0b);
+    INSN(0x0ff10f0b)
+
+    print_gprs();
+}
 # 6. STMIA
 - [STM-STMIA-STMEA--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/STM--STMIA--STMEA-)
 - [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=) P480
 - [CSDN 介绍](https://www.cnblogs.com/lifexy/p/7363208.html)
 - ARM-QEMU实现
     - [decodetree-t32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/t32.decode)
-    ```
-    &ldst_block      !extern rn i b u w list
-    @ldstm           .... .... .. w:1 . rn:4 list:16              &ldst_block u=0
-    STM_t32          1110 1000 10.0 .... ................         @ldstm i=1 b=0
-    STM_t32          1110 1001 00.0 .... ................         @ldstm i=0 b=1
-    ```
     - [decodetree-a32](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/a32.decode)
-    ```
-    &ldst_block      rn i b u w list
-    STM              ---- 100 b:1 i:1 u:1 w:1 0 rn:4 list:16   &ldst_block
-    ```
     - [translate.c](https://gitlab.com/qemu-project/qemu/-/blob/master/target/arm/translate.c)
-    ```
-    static bool op_stm(DisasContext *s, arg_ldst_block *a, int min_n)
-    {
-        int i, j, n, list, mem_idx;
-        bool user = a->u;
-        TCGv_i32 addr, tmp, tmp2;
+----
+```
+stmia   . ........... ..... 001 ..... 0001011 @ldm
 
-        if (user) {
-            /* STM (user) */
-            if (IS_USER(s)) {
-                /* Only usable in supervisor mode.  */
-                unallocated_encoding(s);
-                return true;
-            }
-        }
+static bool trans_stmia(DisasContext *s, arg_stmia *a)
+{
+    int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
+    int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
+    int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
+    unsigned int mask = a->gpr_mask;
 
-        list = a->list;
-        n = ctpop16(list);
-        if (n < min_n || a->rn == 15) {
-            unallocated_encoding(s);
-            return true;
-        }
+    TCGv target_mem_addr = tcg_temp_new();
+    TCGv src_reg_index;
 
-        s->eci_handled = true;
+    gen_get_gpr(target_mem_addr, a->rs1);
 
-        addr = op_addr_block_pre(s, a, n);
-        mem_idx = get_mem_index(s);
+    for (int i = 0; i < 16; ++i) {
+        if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
+        if (!(mask & (1 << i))) continue; // check if masked
 
-        for (i = j = 0; i < 16; i++) {
-            if (!(list & (1 << i))) {
-                continue;
-            }
+        src_reg_index = tcg_temp_new(); // renew temp once
 
-            if (user && i != 15) {
-                tmp = tcg_temp_new_i32();
-                tmp2 = tcg_const_i32(i);
-                gen_helper_get_user_reg(tmp, cpu_env, tmp2);
-                tcg_temp_free_i32(tmp2);
-            } else {
-                tmp = load_reg(s, i);
-            }
-            gen_aa32_st_i32(s, tmp, addr, mem_idx, MO_UL | MO_ALIGN);
-            tcg_temp_free_i32(tmp);
-
-            /* No need to add after the last transfer.  */
-            if (++j != n) {
-                tcg_gen_addi_i32(addr, addr, 4);
-            }
-        }
-
-        op_addr_block_post(s, a, addr, n);
-        clear_eci_state(s);
-        return true;
+        gen_get_gpr(src_reg_index, reg_list[i]);
+        tcg_gen_qemu_st_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_sd
+        tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8); // 64bit / 8 = 8
+    
+        tcg_temp_free(src_reg_index);
     }
 
-    static bool trans_STM(DisasContext *s, arg_ldst_block *a)
-    {
-        /* BitCount(list) < 1 is UNPREDICTABLE */
-        return op_stm(s, a, 1);
-    }
+    tcg_temp_free(target_mem_addr);
 
-    static bool trans_STM_t32(DisasContext *s, arg_ldst_block *a)
-    {
-        /* Writeback register in register list is UNPREDICTABLE for T32.  */
-        if (a->w && (a->list & (1 << a->rn))) {
-            unallocated_encoding(s);
-            return true;
-        }
-        /* BitCount(list) < 2 is UNPREDICTABLE */
-        return op_stm(s, a, 2);
-    }
-    ```
+    return true;
+}
+```
+----
+```
+/*
+ * stmia: 
+ * +---+---------------+------+-----+-----------+---------+
+ * | e | mask[15:5]    | rs1  | 001 | mask[4:0] | 0001011 |
+ * +---+---------------+------+-----+-----------+---------+
+ * 31  30              19     14    11          6         0
+ */
+static inline void stmia_sp(void)
+{
+    printf("==> stmia-callee {x8-x9, x18-x27}, (sp)\n");
+
+    print_gprs();
+
+    // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
+    printf("==> cpu-exec 0x%x\n", 0x0ff11f0b);
+    INSN(0x0ff11f0b)
+
+    print_gprs();
+}
+```
 # 7. PREFI/PREFD
 - nop
 ```

@@ -119,6 +119,7 @@ Supported machines are:
 none                 empty machine
 ```
 ## 3.2 [RISC-V VirtIO Machine](https://gitlab.com/qemu-project/qemu/-/commit/04331d0b56a0cab2e40a39135a92a15266b37c36)
+## 3.3 [RISCV-QEMU v8.2 upstream](https://gitlab.com/qemu-project/qemu/-/commit/d9bbfea646e86426d549bd612cd9f91e49aa50c2)
 - TypeInfo *_cpu_type_infos
 - *_cpu_class_init
 - *_cpu_realize
@@ -188,10 +189,8 @@ hart 1 starting
 hart 2 starting
 init: starting sh
 ```
-## 3.3 [RISC-V ELF Machine Definition](https://gitlab.com/qemu-project/qemu/-/commit/f71a8eaffba3271cf7cdad95572f6996f7523a5b)
-## 3.4 [RISCV-QEMU v8.2 upstream](https://gitlab.com/qemu-project/qemu/-/commit/d9bbfea646e86426d549bd612cd9f91e49aa50c2)
-## 3.5 [Create a SiFive E SoC object](https://gitlab.com/qemu-project/qemu/-/commit/651cd8b7e18eda46a36cf073428452d04bb354f2)
-## 3.6 [Activate decodetree and implemnt LUI & AUIPC](https://gitlab.com/qemu-project/qemu/-/commit/2a53cff418335ccb4719e9a94fde55f6ebcc895d)
+## 3.4 [Activate decodetree and implemnt LUI & AUIPC](https://gitlab.com/qemu-project/qemu/-/commit/2a53cff418335ccb4719e9a94fde55f6ebcc895d)
+## 3.5 [Split RVC32 and RVC64 insns into separate files](https://gitlab.com/qemu-project/qemu/-/commit/0e68e240a9bd3b44a91cd6012f0e2bf2a43b9fe2)
 - 新增 tree.decode
     - ./target/riscv/insn32.decode +-> ./target/tree/tree32.decode
     - ./target/riscv/insn16.decode +-> ./target/tree/tree16.decode
@@ -212,9 +211,6 @@ init: starting sh
     - ./target/tree/insn_trans/trans_tree.c.inc
         > 在这里实现私有指令的trans_**函数
 - 新增 trans_tree.c.inc
-## 3.7 [Split RVC32 and RVC64 insns into separate files](https://gitlab.com/qemu-project/qemu/-/commit/0e68e240a9bd3b44a91cd6012f0e2bf2a43b9fe2)
-## 3.8 [Add a base 32 and 64 bit CPU](https://gitlab.com/qemu-project/qemu/-/commit/8903bf6e6d73d03b988b4a8197132de2ad681ff5)
-## 3.9 [Add OpenSBI version 0.4](https://gitlab.com/qemu-project/qemu/-/commit/91f3a2f0ce59cb621630bd224f634955222fc3e0)
-## 3.10 [sifive_u: Add support for loading initrd](https://gitlab.com/qemu-project/qemu/-/commit/0f8d4462498afd2f071cb5c837750b703a48ba18)
-## 3.11 [Add initial support for Shakti C machine](https://gitlab.com/qemu-project/qemu/-/commit/7a261bafc8ee01294cc709366810798bec4fe2f7)
-## 3.12 [riscv: Add documentation for virt machine](https://gitlab.com/qemu-project/qemu/-/commit/85198f189e41c9d9ebe340d2feecf7d668499bc4)
+## 3.6 [Add OpenSBI version 0.4](https://gitlab.com/qemu-project/qemu/-/commit/91f3a2f0ce59cb621630bd224f634955222fc3e0)
+## 3.7 [sifive_u: Add support for loading initrd](https://gitlab.com/qemu-project/qemu/-/commit/0f8d4462498afd2f071cb5c837750b703a48ba18)
+## 3.8 [riscv: Add documentation for virt machine](https://gitlab.com/qemu-project/qemu/-/commit/85198f189e41c9d9ebe340d2feecf7d668499bc4)
