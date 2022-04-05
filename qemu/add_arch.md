@@ -190,6 +190,102 @@ hart 2 starting
 init: starting sh
 ```
 ## 3.4 [Activate decodetree and implemnt LUI & AUIPC](https://gitlab.com/qemu-project/qemu/-/commit/2a53cff418335ccb4719e9a94fde55f6ebcc895d)
+- 增加48bit支持
+    - ./target/tree/translate.c
+        ```
+        /* Include the decoder for 48 bit insn, */
+        #if defined(TARGET_TREE)
+        #include "insn_trans/decode-tree48.c.inc"
+        #endif
+
+        static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
+        {
+            /* check for 48-bits private insn */
+            if (extract16(opcode, 0, 5) == 0x1f) { // 48-bits with opcode[0:5] == 11111
+                uint64_t opcode48 = opcode;
+                opcode48 = deposit64(opcode48, 16, 32, // 16 + 32 = 48
+                                    translator_ldl(env, ctx->base.pc_next + 2));
+                if (!decode_tree48(ctx, opcode48)) {
+                    gen_exception_illegal(ctx);
+                }
+                ctx->pc_succ_insn = ctx->base.pc_next + 3;
+            /* check for compressed insn */
+            } else if (extract16(opcode, 0, 2) != 3) { // 16-bits with opcode[0:2] in {00, 01, 02}
+                if (!has_ext(ctx, RVC)) {
+                    gen_exception_illegal(ctx);
+                } else {
+                    ctx->pc_succ_insn = ctx->base.pc_next + 2;
+                #if defined(TARGET_TREE)
+                    if (!decode_tree16(ctx, opcode)) {
+                #else
+                    if (!decode_insn16(ctx, opcode)) {
+                #endif
+                        gen_exception_illegal(ctx);
+                    }
+                }
+            } else { // 32-bits with opcode[0:2] == 11; 64-bits with opcode[0:6] == 111111
+                uint32_t opcode32 = opcode;
+                opcode32 = deposit32(opcode32, 16, 16,
+                                    translator_lduw(env, ctx->base.pc_next + 2));
+                ctx->pc_succ_insn = ctx->base.pc_next + 4;
+            #if defined(TARGET_TREE)
+                if (!decode_tree32(ctx, opcode32)) {
+            #else
+                if (!decode_insn32(ctx, opcode32)) {
+            #endif
+                    gen_exception_illegal(ctx);
+                }
+            }
+        }
+        ```
+    - ./target/tree/insn_trans/decode-tree48.c.inc
+        ```
+        /* This file is porting from auto-generated decode-tree32.c.inc scripts/decodetree.py.  */
+
+        /* insn arg_set */
+        typedef struct {
+            //
+        } arg_l_li;
+
+        /* insn trans function */
+        static bool trans_l_li(DisasContext *s, arg_l_li *a)
+        {
+            //
+        }
+
+        /* insn extract func */
+        static void decode_tree48_extract_l_li(DisasContext *ctx, arg_l_li *a, uint64_t insn)
+        {
+            //
+        }
+
+        /* main decode func */
+        static bool decode_tree48(DisasContext *ctx, uint64_t insn)
+        {
+            union {
+                arg_l_li f_l_li;
+            } u;
+
+            switch (insn & 0x0000007f) {
+                case 0x0000001f:
+                    /* ........ ........ ........ ........ .0011111 */
+                    decode_tree48_extract_l_li(ctx, &u.f_l_li, insn);
+                    switch ((insn >> 12) & 0xf) {
+                        case 0x0:
+                            /* ........ ........ ........ 0000.... .0011111 */
+                            if (trans_l_li(ctx, &u.f_l_li)) return true;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            return false;
+        }
+        ```
 ## 3.5 [Split RVC32 and RVC64 insns into separate files](https://gitlab.com/qemu-project/qemu/-/commit/0e68e240a9bd3b44a91cd6012f0e2bf2a43b9fe2)
 - 新增 tree.decode
     - ./target/riscv/insn32.decode +-> ./target/tree/tree32.decode

@@ -178,6 +178,7 @@
 # 4. 通过gnu-as内联汇编构造用例
 - [RISC-V Directives](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dDirectives.html#RISC_002dV_002dDirectives)
 - [Instruction Formats](https://sourceware.org/binutils/docs-2.33.1/as/RISC_002dV_002dFormats.html#RISC_002dV_002dFormats) insn是gcc-riscv的俚语，qemu中也仅在RV中使用。
+- [CSDN](https://www.cnblogs.com/xphh/p/11491681.html)
     ```
     // addshf,rd,rs1,rs2,sll #2 => asm (".insn r 0x7b, 0, 2, rd, rs1, rs2")
     static int addsll_2(int rs1, int rs2)
@@ -386,30 +387,107 @@
     }
     ```
 # 7. PREFI/PREFD
-- nop
+- 直接打桩为nop
 ```
-static bool trans_prf(DisasContext *s, arg_ldst_block *a)
+# *** perfi/prefd ***
+%prf_imm7   25:7
+&prf    prf_imm7 rs1
+@prf    ....... ..... ..... ... ..... ....... &prf  %prf_imm7 %rs1
+
+prefi   ....... 00000 ..... 010 00000 0001011 @prf
+prefd   ....... 00000 ..... 011 00000 0001011 @prf
+
+static bool trans_prefi(DisasContext *s, arg_prefi *a)
 {
-    /* prefetch instruction, is a nop instruction in model.  */
     return true;
+}
+
+static bool trans_prefd(DisasContext *s, arg_prefd *a)
+{
+    return true;
+}
+```
+- 验证
+```
+/*
+ * prf: 
+ * +--------+--------+-------+-----+--------+------------+
+ * | imm7   | 00000  | rs1   | 010 | 00000  | 0001011    | // prefi
+ * | imm7   | 00000  | rs1   | 011 | 00000  | 0001011    | // prefd
+ * +--------+--------+-------+-----+--------+------------+
+ * 31       24       19      14    11       6            0
+ */
+void test_prf(void)
+{
+    INSN(0x5404a00b) // prefi
+    INSN(0x5404b00b) // prefd
 }
 ```
 # 8. L.LI
 - qemu内部的IR本身支持32bit立即数加载，trans函数仿照lui实现即可
+- decodetree仅支持16/32/64三种指令长度，因此需要修改decode_opc函数后，仿照decodetree实现解码。
+- 实现
+    - ./target/tree/insn_trans/decode-tree48.c.inc
+        ```
+        /* This file is porting from auto-generated decode-tree32.c.inc scripts/decodetree.py.  */
+
+        /* insn arg_set */
+        typedef struct {
+            //
+        } arg_l_li;
+
+        /* insn trans function */
+        static bool trans_l_li(DisasContext *s, arg_l_li *a)
+        {
+            //
+        }
+
+        /* insn extract func */
+        static void decode_tree48_extract_l_li(DisasContext *ctx, arg_l_li *a, uint64_t insn)
+        {
+            //
+        }
+
+        /* main decode func */
+        static bool decode_tree48(DisasContext *ctx, uint64_t insn)
+        {
+            union {
+                arg_l_li f_l_li;
+            } u;
+
+            switch (insn & 0x0000007f) {
+                case 0x0000001f:
+                    /* ........ ........ ........ ........ .0011111 */
+                    decode_tree48_extract_l_li(ctx, &u.f_l_li, insn);
+                    switch ((insn >> 12) & 0xf) {
+                        case 0x0:
+                            /* ........ ........ ........ 0000.... .0011111 */
+                            if (trans_l_li(ctx, &u.f_l_li)) return true;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            return false;
+        }
+        ```
+- 验证
 ```
-static bool trans_l.li(DisasContext *ctx, arg_lui *a)
+/*
+ * l,li: 
+ * +---------------+-------+------+------------+
+ * | imm32         | 0000  | rd   | 0011111    |
+ * +---------------+-------+------+------------+
+ * 47              15      11     6            0
+ */
+void test_l_li(void)
 {
-    if (a->rd != 0) {
-        tcg_gen_movi_tl(cpu_gpr[a->rd], a->imm);
-    }
-    return true;
+    __asm__ __volatile__ (".8byte 0x0000beaf049f");
 }
-```
-- decodetree.py支持变长指令，如RX指令集支持24bit，使用参数--varinsnwidth定义即可。
-```
-gen = [
-  decodetree.process('insns.decode', extra_args: [ '--varinsnwidth', '32' ])
-]
 ```
 # 9. C.LBU/C.SB
 - RV32I中对LB和LBU的trans函数实现一致, 同时C.LUI与LUI共用同一个trans函数(gen_load_tl不区分指令长度)

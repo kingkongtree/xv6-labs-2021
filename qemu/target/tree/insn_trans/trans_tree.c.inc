@@ -114,36 +114,52 @@ GEN_TRANS_PRESHF(and)
 
 static bool trans_ldmia(DisasContext *s, arg_ldmia *a)
 {
-    int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
-    int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
+    int callee_reg_list[16] = { 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 9, 8, 2, -1, -1, -1 };
+    int caller_reg_list[16] = { 31, 30, 29, 28,  17, 16, 15, 14, 13, 12, 11, 10, 7, 6, 5, 1 };
     int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
     unsigned int mask = a->gpr_mask;
 
+    for (int i = 0; i < 16; ++i) {
+        if (a->rs1 == reg_list[i]) {
+            return false;
+        }
+    }
+
     TCGv target_mem_addr = tcg_temp_new();
-    TCGv src_reg_index = tcg_temp_new();
+    TCGv src_reg_index;
 
     gen_get_gpr(target_mem_addr, a->rs1);
 
     for (int i = 0; i < 16; ++i) {
         if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
         if (!(mask & (1 << i))) continue; // check if masked
+
+        src_reg_index = tcg_temp_new();
+
         tcg_gen_qemu_ld_tl(src_reg_index, target_mem_addr, s->mem_idx, MO_TEQ); // port from trans_ld
         gen_set_gpr(reg_list[i], src_reg_index);
         tcg_gen_addi_tl(target_mem_addr, target_mem_addr, 8);
+
+        tcg_temp_free(src_reg_index);
     }
 
     tcg_temp_free(target_mem_addr);
-    tcg_temp_free(src_reg_index);
 
     return true;
 }
 
 static bool trans_stmia(DisasContext *s, arg_stmia *a)
 {
-    int callee_reg_list[16] = { 2, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, -1, -1, -1 };
-    int caller_reg_list[16] = { 1, 5, 6, 7,  10, 11, 12, 13, 14, 15, 16, 17, 28, 29, 30, 31 };
+    int callee_reg_list[16] = { 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 9, 8, 2, -1, -1, -1 };
+    int caller_reg_list[16] = { 31, 30, 29, 28,  17, 16, 15, 14, 13, 12, 11, 10, 7, 6, 5, 1 };
     int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
     unsigned int mask = a->gpr_mask;
+
+    for (int i = 0; i < 16; ++i) {
+        if (a->rs1 == reg_list[i]) {
+            return false;
+        }
+    }
 
     TCGv target_mem_addr = tcg_temp_new();
     TCGv src_reg_index;
@@ -165,5 +181,15 @@ static bool trans_stmia(DisasContext *s, arg_stmia *a)
 
     tcg_temp_free(target_mem_addr);
 
+    return true;
+}
+
+static bool trans_prefi(DisasContext *s, arg_prefi *a)
+{
+    return true;
+}
+
+static bool trans_prefd(DisasContext *s, arg_prefd *a)
+{
     return true;
 }

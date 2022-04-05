@@ -161,6 +161,32 @@ void test_mia(void)
     ldmia_sp();
 }
 
+/*
+ * prf: 
+ * +--------+--------+-------+-----+--------+------------+
+ * | imm7   | 00000  | rs1   | 010 | 00000  | 0001011    | // prefi
+ * | imm7   | 00000  | rs1   | 011 | 00000  | 0001011    | // prefd
+ * +--------+--------+-------+-----+--------+------------+
+ * 31       24       19      14    11       6            0
+ */
+void test_prf(void)
+{
+    INSN(0x5404a00b) // prefi
+    INSN(0x5404b00b) // prefd
+}
+
+/*
+ * l,li: 
+ * +---------------+-------+------+------------+
+ * | imm32         | 0000  | rd   | 0011111    |
+ * +---------------+-------+------+------------+
+ * 47              15      11     6            0
+ */
+void test_l_li(void)
+{
+    __asm__ __volatile__ (".8byte 0x0000beaf049f");
+}
+
 int main(int argc, char *argv[])
 {
     if (argc > 1) {
@@ -175,6 +201,12 @@ int main(int argc, char *argv[])
     int r1 = 3, r2 = 2;
     printf("addshf,3,2,sll #2 =%d\n", addsll_2(r1,r2));
     printf("orshf,3,2,sra #4 =%d\n", orsra_4(r1,r2));
+
+    printf("\n================ prf test ===========\n");
+    test_prf();
+
+    printf("\n================ l.li test ===========\n");
+    test_l_li();
 
     printf("\n================ mia test ===========\n");
     test_mia();

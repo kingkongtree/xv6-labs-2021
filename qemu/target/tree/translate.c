@@ -435,7 +435,12 @@ static int ex_rvc_shifti(DisasContext *ctx, int imm)
 }
 
 /* Include the auto-generated decoder for 32 bit insn */
+#if defined(TARGET_TREE)
+#include "decode-tree32.c.inc"
+#else
 #include "decode-insn32.c.inc"
+#endif
+
 
 static bool gen_arith_imm_fn(DisasContext *ctx, arg_i *a,
                              void (*func)(TCGv, TCGv, target_long))
@@ -890,28 +895,56 @@ static bool gen_unary(DisasContext *ctx, arg_r2 *a,
 #include "insn_trans/trans_rvv.c.inc"
 #include "insn_trans/trans_rvb.c.inc"
 #include "insn_trans/trans_privileged.c.inc"
+#include "insn_trans/trans_tree.c.inc"
 
-/* Include the auto-generated decoder for 16 bit insn */
+/* Include the auto-generated decoder for 16 bit insn, */
+#if defined(TARGET_TREE)
+#include "decode-tree16.c.inc"
+#else
 #include "decode-insn16.c.inc"
+#endif
+
+/* Include the decoder for 48 bit insn, */
+#if defined(TARGET_TREE)
+#include "insn_trans/decode-tree48.c.inc"
+#endif
+
 
 static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
 {
+    /* check for 48-bits private insn */
+    if (extract16(opcode, 0, 5) == 0x1f) { // 48-bits with opcode[0:5] == 11111
+        uint64_t opcode48 = opcode;
+        opcode48 = deposit64(opcode48, 16, 32, // 16 + 32 = 48
+                             translator_ldl(env, ctx->base.pc_next + 2));
+        if (!decode_tree48(ctx, opcode48)) {
+            gen_exception_illegal(ctx);
+        }
+        ctx->pc_succ_insn = ctx->base.pc_next + 3;
     /* check for compressed insn */
-    if (extract16(opcode, 0, 2) != 3) {
+    } else if (extract16(opcode, 0, 2) != 3) { // 16-bits with opcode[0:2] in {00, 01, 02}
         if (!has_ext(ctx, RVC)) {
             gen_exception_illegal(ctx);
         } else {
             ctx->pc_succ_insn = ctx->base.pc_next + 2;
+        #if defined(TARGET_TREE)
+            if (!decode_tree16(ctx, opcode)) {
+        #else
             if (!decode_insn16(ctx, opcode)) {
+        #endif
                 gen_exception_illegal(ctx);
             }
         }
-    } else {
+    } else { // 32-bits with opcode[0:2] == 11; 64-bits with opcode[0:6] == 111111
         uint32_t opcode32 = opcode;
         opcode32 = deposit32(opcode32, 16, 16,
                              translator_lduw(env, ctx->base.pc_next + 2));
         ctx->pc_succ_insn = ctx->base.pc_next + 4;
+    #if defined(TARGET_TREE)
+        if (!decode_tree32(ctx, opcode32)) {
+    #else
         if (!decode_insn32(ctx, opcode32)) {
+    #endif
             gen_exception_illegal(ctx);
         }
     }
