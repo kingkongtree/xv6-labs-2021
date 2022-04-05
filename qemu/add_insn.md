@@ -490,37 +490,60 @@ void test_l_li(void)
 }
 ```
 # 9. C.LBU/C.SB
-- RV32I中对LB和LBU的trans函数实现一致, 同时C.LUI与LUI共用同一个trans函数(gen_load_tl不区分指令长度)
+- 实现
 ```
-static bool gen_load_tl(DisasContext *ctx, arg_lb *a, MemOp memop)
+# *** c.lbu / c.sb ***
 {
-    TCGv dest = dest_gpr(ctx, a->rd);
-    TCGv addr = get_address(ctx, a->rs1, a->imm);
+  c_lbu           001  ... ... .. ... 00 @cl_d
+  fld             001  ... ... .. ... 00 @cl_d
+}
 
-    tcg_gen_qemu_ld_tl(dest, addr, ctx->mem_idx, memop);
-    gen_set_gpr(ctx, a->rd, dest);
+{
+  c_sb             101  ... ... .. ... 00 @cs_d
+  fsd              101  ... ... .. ... 00 @cs_d
+}
+
+static bool trans_c_lbu(DisasContext *ctx, arg_i *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+    unsigned int uimm = (unsigned int)a->imm;
+    unsigned int uimm_l1 = ((uimm >> 5) & 0x1) << 0;
+    unsigned int uimm_m2 = ((uimm >> 0) & 0x3) << 1;
+    unsigned int uimm_h2 = ((uimm >> 2) & 0x3) << 3;
+    uimm = uimm_l1 | uimm_m2 | uimm_h2;
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, uimm);
+
+    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+    gen_set_gpr(a->rd, t1);
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
     return true;
 }
 
-static bool gen_load(DisasContext *ctx, arg_lb *a, MemOp memop)
+static bool trans_c_sb(DisasContext *ctx, arg_s *a)
 {
-    if (get_xl(ctx) == MXL_RV128) {
-        return gen_load_i128(ctx, a, memop);
-    } else {
-        return gen_load_tl(ctx, a, memop);
-    }
-}
+    TCGv t0 = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+    int imm = (unsigned int)a->imm;
+    int imm_l1 = ((imm >> 5) & 0x1) << 0;
+    int imm_m2 = ((imm >> 0) & 0x3) << 1;
+    int imm_h2 = ((imm >> 2) & 0x3) << 3;
+    imm = imm_l1 | imm_m2 | imm_h2;
 
-static bool trans_lb(DisasContext *ctx, arg_lb *a)
-{
-    return gen_load(ctx, a, MO_SB);
-}
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, imm);
+    gen_get_gpr(dat, a->rs2);
 
-static bool trans_lbu(DisasContext *ctx, arg_lbu *a)
-{
-    return gen_load(ctx, a, MO_UB);
+    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SB);
+    tcg_temp_free(t0);
+    tcg_temp_free(dat);
+    return true;
 }
 ```
+- 验证
 # 10. C.POP/C.PUSH/C.POPRET
 - 参考RX ISA实现
 ```

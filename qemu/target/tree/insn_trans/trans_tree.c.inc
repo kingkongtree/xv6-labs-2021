@@ -193,3 +193,43 @@ static bool trans_prefd(DisasContext *s, arg_prefd *a)
 {
     return true;
 }
+
+static bool trans_c_lbu(DisasContext *ctx, arg_i *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+    unsigned int uimm = (unsigned int)a->imm;
+    unsigned int uimm_l1 = ((uimm >> 5) & 0x1) << 0;
+    unsigned int uimm_m2 = ((uimm >> 0) & 0x3) << 1;
+    unsigned int uimm_h2 = ((uimm >> 2) & 0x3) << 3;
+    uimm = uimm_l1 | uimm_m2 | uimm_h2;
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, uimm);
+
+    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+    gen_set_gpr(a->rd, t1);
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    return true;
+}
+
+static bool trans_c_sb(DisasContext *ctx, arg_s *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+    int imm = (unsigned int)a->imm;
+    int imm_l1 = ((imm >> 5) & 0x1) << 0;
+    int imm_m2 = ((imm >> 0) & 0x3) << 1;
+    int imm_h2 = ((imm >> 2) & 0x3) << 3;
+    imm = imm_l1 | imm_m2 | imm_h2;
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, imm);
+    gen_get_gpr(dat, a->rs2);
+
+    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SB);
+    tcg_temp_free(t0);
+    tcg_temp_free(dat);
+    return true;
+}

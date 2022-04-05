@@ -176,7 +176,7 @@ void test_prf(void)
 }
 
 /*
- * l,li: 
+ * l.li: 
  * +---------------+-------+------+------------+
  * | imm32         | 0000  | rd   | 0011111    |
  * +---------------+-------+------+------------+
@@ -185,6 +185,20 @@ void test_prf(void)
 void test_l_li(void)
 {
     __asm__ __volatile__ (".8byte 0x0000beaf049f");
+}
+
+/*
+ * c.lbu/c.sb: 
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 00 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 00 | // c.sb
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * 15    12        11          9     6           4    1    0
+ */
+void test_c_lbu_sb(void)
+{
+    __asm__ __volatile__ (".2byte 0xac64"); // c.sb
+    __asm__ __volatile__ (".2byte 0x2c64"); // c.lbu
 }
 
 int main(int argc, char *argv[])
@@ -204,6 +218,9 @@ int main(int argc, char *argv[])
 
     printf("\n================ prf test ===========\n");
     test_prf();
+
+    printf("\n================ prf c.lbu/c.sb ===========\n");
+    test_c_lbu_sb();
 
     printf("\n================ l.li test ===========\n");
     test_l_li();
