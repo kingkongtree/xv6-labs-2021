@@ -201,6 +201,22 @@ void test_c_lbu_sb(void)
     __asm__ __volatile__ (".2byte 0x2c64"); // c.lbu
 }
 
+/*
+ * c.pop/c.popret/c.push: 
+ * +-----+---------+--------+----+----+
+ * | 100 | sp16imm | rcount | 00 | 00 | // c.pop
+ * | 100 | sp16imm | rcount | 01 | 00 | // c.popret
+ * | 100 | sp16imm | rcount | 10 | 00 | // c.push
+ * +-----+---------+--------+----+----+
+ * 15    12        7        3    1    0
+ */
+void test_c_pop_push(void)
+{
+    __asm__ __volatile__ (".2byte 0x8a30"); // c.pop
+    __asm__ __volatile__ (".2byte 0x8a3c"); // c.push
+    __asm__ __volatile__ (".2byte 0x8a34"); // c.popret
+}
+
 int main(int argc, char *argv[])
 {
     if (argc > 1) {
@@ -219,14 +235,18 @@ int main(int argc, char *argv[])
     printf("\n================ prf test ===========\n");
     test_prf();
 
-    printf("\n================ prf c.lbu/c.sb ===========\n");
+    printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
-    printf("\n================ l.li test ===========\n");
-    test_l_li();
+    printf("\n================ prf c.pop/c.push ===========\n");
+    test_c_pop_push();
+
 
     printf("\n================ mia test ===========\n");
     test_mia();
+
+    printf("\n================ l.li test ===========\n");
+    test_l_li();
 
     exit(0);
 }

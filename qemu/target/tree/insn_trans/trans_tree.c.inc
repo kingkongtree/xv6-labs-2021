@@ -194,18 +194,25 @@ static bool trans_prefd(DisasContext *s, arg_prefd *a)
     return true;
 }
 
+static int ex_tree_cl(DisasContext *ctx, int imm)
+{
+    /* 2-1-0-4-3 -> 0-4-3-2-1 convertion */
+    unsigned int b0 = imm & 0x1;
+    unsigned int b1 = (imm >> 1) & 0x1;
+    unsigned int b2 = (imm >> 2) & 0x1;
+    unsigned int b3 = (imm >> 3) & 0x1;
+    unsigned int b4 = (imm >> 4) & 0x1;
+    
+    return (b1 << 4) | (b0 << 3) | (b4 << 2) | (b3 << 1) | b2;
+}
+
 static bool trans_c_lbu(DisasContext *ctx, arg_i *a)
 {
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
-    unsigned int uimm = (unsigned int)a->imm;
-    unsigned int uimm_l1 = ((uimm >> 5) & 0x1) << 0;
-    unsigned int uimm_m2 = ((uimm >> 0) & 0x3) << 1;
-    unsigned int uimm_h2 = ((uimm >> 2) & 0x3) << 3;
-    uimm = uimm_l1 | uimm_m2 | uimm_h2;
 
     gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, uimm);
+    tcg_gen_addi_tl(t0, t0, a->imm);
 
     tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
     gen_set_gpr(a->rd, t1);
@@ -218,18 +225,91 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
 {
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
-    int imm = (unsigned int)a->imm;
-    int imm_l1 = ((imm >> 5) & 0x1) << 0;
-    int imm_m2 = ((imm >> 0) & 0x3) << 1;
-    int imm_h2 = ((imm >> 2) & 0x3) << 3;
-    imm = imm_l1 | imm_m2 | imm_h2;
 
     gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, imm);
+    tcg_gen_addi_tl(t0, t0, a->imm);
     gen_get_gpr(dat, a->rs2);
 
     tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SB);
     tcg_temp_free(t0);
     tcg_temp_free(dat);
+    return true;
+}
+
+static bool trans_c_pop(DisasContext *ctx, arg_c_push *a)
+{
+    int reg_list[16] = { 0, 1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 10, 11 };
+    int n_h_size[16] = { 0, 1, 1, 1, 1,  2,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4  };
+    int sp_offset = (n_h_size[a->c_rcount] + a->c_sp16imm) * 16;
+    int r;
+    TCGv t0, t1;
+
+    if (!a->c_rcount) {
+        return true;
+    }
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+
+    gen_get_gpr(t0, 2); // t0 = sp
+    tcg_gen_addi_tl(t0, t0, sp_offset - a->c_rcount * 4);
+
+    for (r = 1; r <= a->c_rcount; ++r) {
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESW);
+        gen_set_gpr(reg_list[a->c_rcount + 1 - r], t1);
+        tcg_gen_addi_tl(t0, t0, 4);
+    }
+
+    gen_get_gpr(t0, 2); // t0 = sp
+    tcg_gen_addi_tl(t0, t0, sp_offset);
+    gen_set_gpr(2, t0);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+
+    return true;
+}
+
+static bool trans_c_popret(DisasContext *ctx, arg_c_push *a)
+{
+    trans_c_pop(ctx, a);
+
+    exit_tb(ctx); /* no chaining */
+    ctx->base.is_jmp = DISAS_NORETURN;
+
+    return true;
+}
+
+static bool trans_c_push(DisasContext *ctx, arg_c_push *a)
+{
+    int reg_list[16] = { 0, 1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 10, 11 };
+    int n_h_size[16] = { 0, 1, 1, 1, 1,  2,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4  };
+    int sp_offset = (n_h_size[a->c_rcount] + a->c_sp16imm) * 16;
+    int r;
+    TCGv t0, t1;
+
+    if (!a->c_rcount) {
+        return true;
+    }
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+
+    gen_get_gpr(t0, 2); // t0 = sp
+    tcg_gen_addi_tl(t0, t0, 0 - a->c_rcount * 4);
+
+    for (r = 1; r <= a->c_rcount; ++r) {
+        gen_get_gpr(t1, reg_list[a->c_rcount + 1 - r]);
+        tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TESW);
+        tcg_gen_addi_tl(t0, t0, 4);
+    }
+
+    gen_get_gpr(t0, 2); // t0 = sp
+    tcg_gen_subi_tl(t0, t0, sp_offset);
+    gen_set_gpr(2, t0);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+
     return true;
 }

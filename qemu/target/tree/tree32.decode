@@ -734,6 +734,9 @@ gorciw     0010100 .......... 101 ..... 0011011 @sh5
 
 #slli_uw    00001. ........... 001 ..... 0011011 @sh
 
+# argument set should define in tree32.decode, and extern to tree16
+&c_push      c_sp16imm c_rcount
+
 # *** preshf ***
 %shftype    30:2
 %shfamt     25:5

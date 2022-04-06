@@ -162,12 +162,28 @@ sw                110 .  .....  ..... 10 @c_swsp
 }
 
 # *** c.lbu / c.sb ***
+%uimm_cl_tree     5:2 10:3           !function=ex_tree_cl
+@cl_tree      ... ... ... .. ... .. &i      imm=%uimm_cl_tree   rs1=%rs1_3  rd=%rs2_3
+@cs_tree      ... ... ... .. ... .. &s      imm=%uimm_cl_tree   rs1=%rs1_3  rs2=%rs2_3
+
 {
-  c_lbu           001  ... ... .. ... 00 @cl_d
+  c_lbu           001  ... ... .. ... 00 @cl_tree
   fld             001  ... ... .. ... 00 @cl_d
 }
 
 {
-  c_sb             101  ... ... .. ... 00 @cs_d
+  c_sb             101  ... ... .. ... 00 @cs_tree
   fsd              101  ... ... .. ... 00 @cs_d
 }
+
+# *** c.pop / c.popret / c.push ***
+%c_sp16imm  8:5
+%c_rcount   4:4
+
+# argument set should define in tree32.decode, and extern to tree16
+&c_push      c_sp16imm c_rcount   !extern
+@c_push      ... ..... .... .. .. &c_push  %c_sp16imm %c_rcount
+
+c_pop       100 ..... .... 00 00 @c_push
+c_popret    100 ..... .... 01 00 @c_push
+c_push      100 ..... .... 10 00 @c_push

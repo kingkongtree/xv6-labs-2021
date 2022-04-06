@@ -492,29 +492,39 @@ void test_l_li(void)
 # 9. C.LBU/C.SB
 - 实现
 ```
+%uimm_cl_tree     5:2 10:3           !function=ex_tree_cl
+@cl_tree      ... ... ... .. ... .. &i      imm=%uimm_cl_tree   rs1=%rs1_3  rd=%rs2_3
+@cs_tree      ... ... ... .. ... .. &s      imm=%uimm_cl_tree   rs1=%rs1_3  rs2=%rs2_3
 # *** c.lbu / c.sb ***
 {
-  c_lbu           001  ... ... .. ... 00 @cl_d
+  c_lbu           001  ... ... .. ... 00 @cl_tree
   fld             001  ... ... .. ... 00 @cl_d
 }
 
 {
-  c_sb             101  ... ... .. ... 00 @cs_d
-  fsd              101  ... ... .. ... 00 @cs_d
+  c_sb            101  ... ... .. ... 00 @cs_tree
+  fsd             101  ... ... .. ... 00 @cs_d
+}
+
+static int ex_tree_cl(DisasContext *ctx, int imm)
+{
+    /* 2-1-0-4-3 -> 0-4-3-2-1 convertion */
+    unsigned int b0 = imm & 0x1;
+    unsigned int b1 = (imm >> 1) & 0x1;
+    unsigned int b2 = (imm >> 2) & 0x1;
+    unsigned int b3 = (imm >> 3) & 0x1;
+    unsigned int b4 = (imm >> 4) & 0x1;
+    
+    return (b1 << 4) | (b0 << 3) | (b4 << 2) | (b3 << 1) | b2;
 }
 
 static bool trans_c_lbu(DisasContext *ctx, arg_i *a)
 {
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
-    unsigned int uimm = (unsigned int)a->imm;
-    unsigned int uimm_l1 = ((uimm >> 5) & 0x1) << 0;
-    unsigned int uimm_m2 = ((uimm >> 0) & 0x3) << 1;
-    unsigned int uimm_h2 = ((uimm >> 2) & 0x3) << 3;
-    uimm = uimm_l1 | uimm_m2 | uimm_h2;
 
     gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, uimm);
+    tcg_gen_addi_tl(t0, t0, a->imm);
 
     tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
     gen_set_gpr(a->rd, t1);
@@ -527,14 +537,9 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
 {
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
-    int imm = (unsigned int)a->imm;
-    int imm_l1 = ((imm >> 5) & 0x1) << 0;
-    int imm_m2 = ((imm >> 0) & 0x3) << 1;
-    int imm_h2 = ((imm >> 2) & 0x3) << 3;
-    imm = imm_l1 | imm_m2 | imm_h2;
 
     gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, imm);
+    tcg_gen_addi_tl(t0, t0, a->imm);
     gen_get_gpr(dat, a->rs2);
 
     tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SB);
@@ -546,116 +551,106 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
 - 验证
 # 10. C.POP/C.PUSH/C.POPRET
 - 参考RX ISA实现
-```
-static void push(TCGv val)
-{
-    tcg_gen_subi_i32(cpu_sp, cpu_sp, 4);
-    rx_gen_st(MO_32, val, cpu_sp);
-}
+    - ./target/tree/tree32.decode
+    ```
+    # argument set should define in tree32.decode, and extern to tree16
+    &c_push      c_sp16imm c_rcount
+    ```
+    - ./target/tree/tree16.decode
+    ```
+    # *** c.pop / c.popret / c.push ***
+    %c_sp16imm  8:5
+    %c_rcount   4:4
 
-static void pop(TCGv ret)
-{
-    rx_gen_ld(MO_32, ret, cpu_sp);
-    tcg_gen_addi_i32(cpu_sp, cpu_sp, 4);
-}
+    # argument set should define in tree32.decode, and extern to tree16
+    &c_push      c_sp16imm c_rcount   !extern
+    @c_push      ... ..... .... .. .. &c_push  %c_sp16imm %c_rcount
 
-/* pop rd */
-static bool trans_POP(DisasContext *ctx, arg_POP *a)
-{
-    /* mov.l [r0+], rd */
-    arg_MOV_rp mov_a;
-    mov_a.rd = 0;
-    mov_a.rs = a->rd;
-    mov_a.ad = 0;
-    mov_a.sz = MO_32;
-    trans_MOV_pr(ctx, &mov_a);
-    return true;
-}
+    c_pop       100 ..... .... 00 00 @c_push
+    c_popret    100 ..... .... 01 00 @c_push
+    c_push      100 ..... .... 10 00 @c_push
+    ```
+    -
+    ```
 
-/* popc cr */
-static bool trans_POPC(DisasContext *ctx, arg_POPC *a)
-{
-    TCGv val;
-    val = tcg_temp_new();
-    pop(val);
-    move_to_cr(ctx, val, a->cr);
-    if (a->cr == 0 && is_privileged(ctx, 0)) {
-        /* PSW.I may be updated here. exit TB. */
-        ctx->base.is_jmp = DISAS_UPDATE;
+    static bool trans_c_pop(DisasContext *ctx, arg_c_push *a)
+    {
+        int reg_list[16] = { 0, 1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 10, 11 };
+        int n_h_size[16] = { 0, 1, 1, 1, 1,  2,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4  };
+        int sp_offset = (n_h_size[a->c_rcount] + a->c_sp16imm) * 16;
+        int r;
+        TCGv t0, t1;
+
+        if (!a->c_rcount) {
+            return true;
+        }
+
+        t0 = tcg_temp_new();
+        t1 = tcg_temp_new();
+
+        gen_get_gpr(t0, 2); // t0 = sp
+        tcg_gen_addi_tl(t0, t0, sp_offset - a->c_rcount * 4);
+
+        for (r = 1; r <= a->c_rcount; ++r) {
+            tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESW);
+            gen_set_gpr(reg_list[a->c_rcount + 1 - r], t1);
+            tcg_gen_addi_tl(t0, t0, 4);
+        }
+
+        gen_get_gpr(t0, 2); // t0 = sp
+        tcg_gen_addi_tl(t0, t0, sp_offset);
+        gen_set_gpr(2, t0);
+
+        tcg_temp_free(t0);
+        tcg_temp_free(t1);
+
+        return true;
     }
-    tcg_temp_free(val);
-    return true;
-}
 
-/* popm rd-rd2 */
-static bool trans_POPM(DisasContext *ctx, arg_POPM *a)
-{
-    int r;
-    if (a->rd == 0 || a->rd >= a->rd2) {
-        qemu_log_mask(LOG_GUEST_ERROR,
-                      "Invalid  register ranges r%d-r%d", a->rd, a->rd2);
+    static bool trans_c_popret(DisasContext *ctx, arg_c_push *a)
+    {
+        trans_c_pop(ctx, a);
+
+        exit_tb(ctx); /* no chaining */
+        ctx->base.is_jmp = DISAS_NORETURN;
+
+        return true;
     }
-    r = a->rd;
-    while (r <= a->rd2 && r < 16) {
-        pop(cpu_regs[r++]);
+
+    static bool trans_c_push(DisasContext *ctx, arg_c_push *a)
+    {
+        int reg_list[16] = { 0, 1, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 10, 11 };
+        int n_h_size[16] = { 0, 1, 1, 1, 1,  2,  2,  2,  2,  3,  3,  3,  3,  4,  4,  4  };
+        int sp_offset = (n_h_size[a->c_rcount] + a->c_sp16imm) * 16;
+        int r;
+        TCGv t0, t1;
+
+        if (!a->c_rcount) {
+            return true;
+        }
+
+        t0 = tcg_temp_new();
+        t1 = tcg_temp_new();
+
+        gen_get_gpr(t0, 2); // t0 = sp
+        tcg_gen_addi_tl(t0, t0, 0 - a->c_rcount * 4);
+
+        for (r = 1; r <= a->c_rcount; ++r) {
+            gen_get_gpr(t1, reg_list[a->c_rcount + 1 - r]);
+            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TESW);
+            tcg_gen_addi_tl(t0, t0, 4);
+        }
+
+        gen_get_gpr(t0, 2); // t0 = sp
+        tcg_gen_subi_tl(t0, t0, sp_offset);
+        gen_set_gpr(2, t0);
+
+        tcg_temp_free(t0);
+        tcg_temp_free(t1);
+
+        return true;
     }
-    return true;
-}
-
-
-/* push.<bwl> rs */
-static bool trans_PUSH_r(DisasContext *ctx, arg_PUSH_r *a)
-{
-    TCGv val;
-    val = tcg_temp_new();
-    tcg_gen_mov_i32(val, cpu_regs[a->rs]);
-    tcg_gen_subi_i32(cpu_sp, cpu_sp, 4);
-    rx_gen_st(a->sz, val, cpu_sp);
-    tcg_temp_free(val);
-    return true;
-}
-
-/* push.<bwl> dsp[rs] */
-static bool trans_PUSH_m(DisasContext *ctx, arg_PUSH_m *a)
-{
-    TCGv mem, val, addr;
-    mem = tcg_temp_new();
-    val = tcg_temp_new();
-    addr = rx_index_addr(ctx, mem, a->ld, a->sz, a->rs);
-    rx_gen_ld(a->sz, val, addr);
-    tcg_gen_subi_i32(cpu_sp, cpu_sp, 4);
-    rx_gen_st(a->sz, val, cpu_sp);
-    tcg_temp_free(mem);
-    tcg_temp_free(val);
-    return true;
-}
-
-/* pushc rx */
-static bool trans_PUSHC(DisasContext *ctx, arg_PUSHC *a)
-{
-    TCGv val;
-    val = tcg_temp_new();
-    move_from_cr(val, a->cr, ctx->pc);
-    push(val);
-    tcg_temp_free(val);
-    return true;
-}
-
-/* pushm rs-rs2 */
-static bool trans_PUSHM(DisasContext *ctx, arg_PUSHM *a)
-{
-    int r;
-
-    if (a->rs == 0 || a->rs >= a->rs2) {
-        qemu_log_mask(LOG_GUEST_ERROR,
-                      "Invalid  register ranges r%d-r%d", a->rs, a->rs2);
-    }
-    r = a->rs2;
-    while (r >= a->rs && r >= 0) {
-        push(cpu_regs[r--]);
-    }
-    return true;
-}
+    ```
 ```
 # 11. BXXI 参考BXX，参考LD-?LUI
 # 12. C.UXTB / C.UXTH 参考ARM UXTB/UXTH
