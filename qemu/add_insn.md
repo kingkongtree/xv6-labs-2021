@@ -651,7 +651,107 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
         return true;
     }
     ```
-# 11. BXXI 参考BXX，参考LD-?LUI
+# 11. BCONDI
+- 实现
+```
+# *** bcondi ***
+%bi_cmp     24:8
+%bi_offset  7:5 20:4
+
+&bi     bi_cmp bi_offset rs1
+@bi     ........ .... ..... ... ..... ....... &bi %bi_cmp %bi_offset %rs1
+
+# change opc from 0111011 to 0111111 for overlap
+beqi    ........ .... ..... 000 ..... 0111111 @bi
+bnei    ........ .... ..... 001 ..... 0111111 @bi
+blti    ........ .... ..... 100 ..... 0111111 @bi
+bgei    ........ .... ..... 101 ..... 0111111 @bi
+bltui   ........ .... ..... 110 ..... 0111111 @bi
+bgeui   ........ .... ..... 111 ..... 0111111 @bi
+
+
+// porting from gen_branch
+static bool gen_branchi(DisasContext *ctx, arg_bi *a, TCGCond cond)
+{
+    TCGLabel *l = gen_new_label();
+    TCGv source1, source2;
+    source1 = tcg_temp_new();
+    source2 = tcg_temp_new();
+    gen_get_gpr(source1, a->rs1);
+    tcg_gen_movi_tl(source2, a->bi_cmp);
+
+    tcg_gen_brcond_tl(cond, source1, source2, l);
+    gen_goto_tb(ctx, 1, ctx->pc_succ_insn);
+    gen_set_label(l); /* branch taken */
+
+    if (!has_ext(ctx, RVC) && ((ctx->base.pc_next + (a->bi_offset << 1)) & 0x3)) { // bi_offset align to 16bytes
+        /* misaligned */
+        gen_exception_inst_addr_mis(ctx);
+    } else {
+        gen_goto_tb(ctx, 0, ctx->base.pc_next + a->bi_offset);
+    }
+    ctx->base.is_jmp = DISAS_NORETURN;
+
+    tcg_temp_free(source1);
+    tcg_temp_free(source2);
+
+    return true;
+}
+
+static bool trans_beqi(DisasContext *ctx, arg_beqi *a)
+{
+    return gen_branchi(ctx, a, TCG_COND_EQ);
+}
+
+static bool trans_bnei(DisasContext *ctx, arg_bnei *a)
+{
+    return gen_branchi(ctx, a, TCG_COND_NE);
+}
+
+static bool trans_blti(DisasContext *ctx, arg_blti *a)
+{
+    return gen_branchi(ctx, a, TCG_COND_LT);
+}
+
+static bool trans_bgei(DisasContext *ctx, arg_bgei *a)
+{
+    return gen_branchi(ctx, a, TCG_COND_GE);
+}
+
+static bool trans_bltui(DisasContext *ctx, arg_bltui *a)
+{
+    return gen_branchi(ctx, a, TCG_COND_LTU);
+}
+
+static bool trans_bgeui(DisasContext *ctx, arg_bgeui *a)
+{
+    return gen_branchi(ctx, a, TCG_COND_GEU);
+}
+```
+- 验证
+```
+/*
+ * bxxi: opc change from 0111011 to 0111111 for overlap
+ * +--------+-------------+-------+-----+-------------+---------+
+ * | cmp7   | offset[9:6] | rs1   | 000 | offset[5:1] | 0111111 | // beqi
+ * | cmp7   | offset[9:6] | rs1   | 001 | offset[5:1] | 0111111 | // bnei
+ * | cmp7   | offset[9:6] | rs1   | 100 | offset[5:1] | 0111111 | // blti
+ * | cmp7   | offset[9:6] | rs1   | 101 | offset[5:1] | 0111111 | // bgei
+ * | cmp7   | offset[9:6] | rs1   | 110 | offset[5:1] | 0111111 | // bltui
+ * | cmp7   | offset[9:6] | rs1   | 111 | offset[5:1] | 0111111 | // bgeui
+ * +--------+-------------+-------+-----+-------------+---------+
+ * 31       24            19      14    11            6         0
+ */
+void test_bcondi(void)
+{
+    INSN(0x640481bf) // beqi
+    INSN(0x640491bf) // bnei
+    INSN(0x6404c1bf) // blti
+    INSN(0x6404d1bf) // bgei
+    INSN(0x6404e1bf) // bltui
+    INSN(0x6404f1bf) // bgeui
+}
+```
 # 12. C.UXTB / C.UXTH 参考ARM UXTB/UXTH
 # 13. C.SH / C.LHU 参考RV32I SH/LHU
 # 14. MULTADD 参考RV32I MUL/ADD

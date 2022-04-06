@@ -217,6 +217,28 @@ void test_c_pop_push(void)
     __asm__ __volatile__ (".2byte 0x8a34"); // c.popret
 }
 
+/*
+ * bxxi: opc change from 0111011 to 0111111 for overlap
+ * +--------+-------------+-------+-----+-------------+---------+
+ * | cmp7   | offset[9:6] | rs1   | 000 | offset[5:1] | 0111111 | // beqi
+ * | cmp7   | offset[9:6] | rs1   | 001 | offset[5:1] | 0111111 | // bnei
+ * | cmp7   | offset[9:6] | rs1   | 100 | offset[5:1] | 0111111 | // blti
+ * | cmp7   | offset[9:6] | rs1   | 101 | offset[5:1] | 0111111 | // bgei
+ * | cmp7   | offset[9:6] | rs1   | 110 | offset[5:1] | 0111111 | // bltui
+ * | cmp7   | offset[9:6] | rs1   | 111 | offset[5:1] | 0111111 | // bgeui
+ * +--------+-------------+-------+-----+-------------+---------+
+ * 31       24            19      14    11            6         0
+ */
+void test_bcondi(void)
+{
+    INSN(0x640481bf) // beqi
+    INSN(0x640491bf) // bnei
+    INSN(0x6404c1bf) // blti
+    INSN(0x6404d1bf) // bgei
+    INSN(0x6404e1bf) // bltui
+    INSN(0x6404f1bf) // bgeui
+}
+
 int main(int argc, char *argv[])
 {
     if (argc > 1) {
@@ -238,15 +260,18 @@ int main(int argc, char *argv[])
     printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
-    printf("\n================ prf c.pop/c.push ===========\n");
-    test_c_pop_push();
-
-
+    // what code done, but debug todo
     printf("\n================ mia test ===========\n");
     test_mia();
 
     printf("\n================ l.li test ===========\n");
     test_l_li();
+
+    printf("\n================ prf c.pop/c.push ===========\n");
+    test_c_pop_push();
+
+    printf("\n================ bcondi test ===========\n");
+    test_bcondi();
 
     exit(0);
 }
