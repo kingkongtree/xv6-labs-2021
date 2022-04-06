@@ -652,7 +652,7 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
     }
     ```
 # 11. BCONDI
-- 实现
+- 实现：对BCOND指令的简单移植
 ```
 # *** bcondi ***
 %bi_cmp     24:8
@@ -753,6 +753,131 @@ void test_bcondi(void)
 }
 ```
 # 12. C.UXTB / C.UXTH 参考ARM UXTB/UXTH
+```
+# *** c.utxb / c.utxh ***
+&c_utx      rs1    !extern
+@c_utx      ...... ... .. .....  &c_utx  rs1=%rs1_3
+
+# b5:2 from 00/01 to 10/11 for overlap
+c_utxb      100111 ... 10 00001  @c_utx
+c_utxh      100111 ... 11 00001  @c_utx
+
+static bool trans_c_utxb(DisasContext *ctx, arg_c_utx *a)
+{
+    TCGv t_rs = tcg_temp_new();
+    gen_get_gpr(t_rs, a->rs1);
+
+    tcg_gen_andi_tl(t_rs, t_rs, 255);
+    gen_set_gpr(a->rs1, t_rs);
+
+    tcg_temp_free(t_rs);
+
+    return true;
+}
+
+static bool trans_c_utxh(DisasContext *ctx, arg_c_utx *a)
+{
+    TCGv source1 = tcg_temp_new();
+    TCGv source2 = tcg_temp_new();
+
+    gen_get_gpr(source1, a->rs1);
+
+    tcg_gen_movi_tl(source2, 16);
+    tcg_gen_shl_tl(source1, source1, source2);
+    tcg_gen_shr_tl(source1, source1, source2);
+
+    gen_set_gpr(a->rs1, source1);
+    tcg_temp_free(source1);
+    tcg_temp_free(source2);
+    return true;
+}
+```
 # 13. C.SH / C.LHU 参考RV32I SH/LHU
+```
+# *** c.sh / c.lhu ***
+# b0:2 from 10 to 11 for overlap
+c_lhu       001  ... ... .. ... 11 @cl_tree
+c_sh        101  ... ... .. ... 11 @cs_tree
+
+static bool trans_c_lhu(DisasContext *ctx, arg_i *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
+
+    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UW);
+    gen_set_gpr(a->rd, t1);
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    return true;
+}
+
+static bool trans_c_sh(DisasContext *ctx, arg_s *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
+    gen_get_gpr(dat, a->rs2);
+
+    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SW);
+    tcg_temp_free(t0);
+    tcg_temp_free(dat);
+    return true;
+}
+```
 # 14. MULTADD 参考RV32I MUL/ADD
+```
+# *** muliadd ***
+%muli_uimm 14:1 25:7
+&muliadd  uimm rs2 rs1 rd
+
+@muliadd  ....... ..... ..... . .. ..... ....... &muliadd  uimm=%muli_uimm %rs2 %rs1 %rd
+
+muliadd   ....... ..... ..... . 01 ..... 1011011 @muliadd
+
+static bool trans_muliadd(DisasContext *ctx, arg_muliadd *a)
+{
+    TCGv tmp_rs1 = tcg_temp_new();
+    TCGv tmp_rs2 = tcg_temp_new();
+
+    gen_get_gpr(tmp_rs1, a->rs1);
+    gen_get_gpr(tmp_rs2, a->rs2);
+    tcg_gen_muli_tl(tmp_rs2, tmp_rs2, a->uimm);
+    tcg_gen_add_tl(tmp_rs1, tmp_rs1, tmp_rs2);
+
+    gen_set_gpr(a->rd, tmp_rs1);
+
+    tcg_temp_free(tmp_rs1);
+    tcg_temp_free(tmp_rs2);
+
+    return true;
+}
+
+```
 # 15. J16M / JAL16M 参考 RV32I JMP/JAL
+```
+# *** j16m / jal16m ***
+%j16m   21:s10 20:1 12:8 31:1 8:4
+&j16m   simm
+
+@j16m   . .......... . ........ .... . .......  &j16m simm=%j16m
+
+j16m    . .......... . ........ .... 1 1111011  @j16m
+jal16m  . .......... . ........ .... 0 1111011  @j16m
+
+static bool trans_j16m(DisasContext *ctx, arg_j16m *a)
+{
+    gen_goto_tb(ctx, 0, a->simm << 1); // pc = sext(simm * 2)
+    return true;
+}
+
+static bool trans_jal16m(DisasContext *ctx, arg_j16m *a)
+{
+    gen_jal(ctx, 1, a->simm << 1); // pc = ra + sext(simm * 2)
+    return true;
+}
+```

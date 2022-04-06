@@ -371,3 +371,93 @@ static bool trans_bgeui(DisasContext *ctx, arg_bgeui *a)
 {
     return gen_branchi(ctx, a, TCG_COND_GEU);
 }
+
+static bool trans_c_utxb(DisasContext *ctx, arg_c_utx *a)
+{
+    TCGv t_rs = tcg_temp_new();
+    gen_get_gpr(t_rs, a->rs1);
+
+    tcg_gen_andi_tl(t_rs, t_rs, 255);
+    gen_set_gpr(a->rs1, t_rs);
+
+    tcg_temp_free(t_rs);
+
+    return true;
+}
+
+static bool trans_c_utxh(DisasContext *ctx, arg_c_utx *a)
+{
+    TCGv source1 = tcg_temp_new();
+    TCGv source2 = tcg_temp_new();
+
+    gen_get_gpr(source1, a->rs1);
+
+    tcg_gen_movi_tl(source2, 16);
+    tcg_gen_shl_tl(source1, source1, source2);
+    tcg_gen_shr_tl(source1, source1, source2);
+
+    gen_set_gpr(a->rs1, source1);
+    tcg_temp_free(source1);
+    tcg_temp_free(source2);
+    return true;
+}
+
+static bool trans_c_lhu(DisasContext *ctx, arg_i *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
+
+    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UW);
+    gen_set_gpr(a->rd, t1);
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    return true;
+}
+
+static bool trans_c_sh(DisasContext *ctx, arg_s *a)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+
+    gen_get_gpr(t0, a->rs1);
+    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
+    gen_get_gpr(dat, a->rs2);
+
+    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SW);
+    tcg_temp_free(t0);
+    tcg_temp_free(dat);
+    return true;
+}
+
+static bool trans_muliadd(DisasContext *ctx, arg_muliadd *a)
+{
+    TCGv tmp_rs1 = tcg_temp_new();
+    TCGv tmp_rs2 = tcg_temp_new();
+
+    gen_get_gpr(tmp_rs1, a->rs1);
+    gen_get_gpr(tmp_rs2, a->rs2);
+    tcg_gen_muli_tl(tmp_rs2, tmp_rs2, a->uimm);
+    tcg_gen_add_tl(tmp_rs1, tmp_rs1, tmp_rs2);
+
+    gen_set_gpr(a->rd, tmp_rs1);
+
+    tcg_temp_free(tmp_rs1);
+    tcg_temp_free(tmp_rs2);
+
+    return true;
+}
+
+static bool trans_j16m(DisasContext *ctx, arg_j16m *a)
+{
+    gen_goto_tb(ctx, 0, a->simm << 1); // pc = sext(simm * 2)
+    return true;
+}
+
+static bool trans_jal16m(DisasContext *ctx, arg_j16m *a)
+{
+    gen_jal(ctx, 1, a->simm << 1); // pc = ra + sext(simm * 2)
+    return true;
+}

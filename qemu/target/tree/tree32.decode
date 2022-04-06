@@ -736,6 +736,7 @@ gorciw     0010100 .......... 101 ..... 0011011 @sh5
 
 # argument set should define in tree32.decode, and extern to tree16
 &c_push      c_sp16imm c_rcount
+&c_utx       rs1
 
 # *** preshf ***
 %shftype    30:2
@@ -812,3 +813,20 @@ blti    ........ .... ..... 100 ..... 0111111 @bi
 bgei    ........ .... ..... 101 ..... 0111111 @bi
 bltui   ........ .... ..... 110 ..... 0111111 @bi
 bgeui   ........ .... ..... 111 ..... 0111111 @bi
+
+# *** muliadd ***
+%muli_uimm 14:1 25:7
+&muliadd  uimm rs2 rs1 rd
+
+@muliadd  ....... ..... ..... . .. ..... ....... &muliadd  uimm=%muli_uimm %rs2 %rs1 %rd
+
+muliadd   ....... ..... ..... . 01 ..... 1011011 @muliadd
+
+# *** j16m / jal16m ***
+%j16m   21:s10 20:1 12:8 31:1 8:4
+&j16m   simm
+
+@j16m   . .......... . ........ .... . .......  &j16m simm=%j16m
+
+j16m    . .......... . ........ .... 1 1111011  @j16m
+jal16m  . .......... . ........ .... 0 1111011  @j16m

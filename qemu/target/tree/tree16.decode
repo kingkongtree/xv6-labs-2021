@@ -187,3 +187,16 @@ sw                110 .  .....  ..... 10 @c_swsp
 c_pop       100 ..... .... 00 00 @c_push
 c_popret    100 ..... .... 01 00 @c_push
 c_push      100 ..... .... 10 00 @c_push
+
+# *** c.utxb / c.utxh ***
+&c_utx      rs1    !extern
+@c_utx      ...... ... .. .....  &c_utx  rs1=%rs1_3
+
+# b5:2 from 00/01 to 10/11 for overlap
+c_utxb      100111 ... 10 00001  @c_utx
+c_utxh      100111 ... 11 00001  @c_utx
+
+# *** c.sh / c.lhu ***
+# b0:2 from 10 to 11 for overlap
+c_lhu       001  ... ... .. ... 11 @cl_tree
+c_sh        101  ... ... .. ... 11 @cs_tree

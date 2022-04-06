@@ -239,6 +239,34 @@ void test_bcondi(void)
     INSN(0x6404f1bf) // bgeui
 }
 
+/*
+ * c.utxb/c.utxh: b5:2 from 00/01 to 10/11 for overlap
+ * +--------+-----+----+-------+
+ * | 100111 | rs1 | 10 | 00001 | // c.utxb
+ * | 100111 | rs1 | 11 | 00001 | // c.utxh
+ * +--------+-----+----+-------+
+ * 15       10    7    5       0
+ */
+void test_c_utx(void)
+{
+    __asm__ __volatile__ (".2byte 0x9cc1"); // c.utxb
+    __asm__ __volatile__ (".2byte 0x9ce1"); // c.utxh
+}
+
+/*
+ * c.lbh/c.sh: b0:2 from 10 to 11 for overlap
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 11 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 11 | // c.sb
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * 15    12        11          9     6           4    1    0
+ */
+void test_c_lbh_sh(void)
+{
+    __asm__ __volatile__ (".2byte 0xac67"); // c.sh
+    __asm__ __volatile__ (".2byte 0x2c67"); // c.lhu
+}
+
 int main(int argc, char *argv[])
 {
     if (argc > 1) {
@@ -257,6 +285,9 @@ int main(int argc, char *argv[])
     printf("\n================ prf test ===========\n");
     test_prf();
 
+    printf("\n================ c.utx test ===========\n");
+    test_prf();
+
     printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
@@ -272,6 +303,9 @@ int main(int argc, char *argv[])
 
     printf("\n================ bcondi test ===========\n");
     test_bcondi();
+
+    printf("\n================ c.lbh/c.sh test ===========\n");
+    test_c_lbh_sh();
 
     exit(0);
 }
