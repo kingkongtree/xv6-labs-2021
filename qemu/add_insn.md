@@ -651,7 +651,6 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
         return true;
     }
     ```
-```
 # 11. BXXI 参考BXX，参考LD-?LUI
 # 12. C.UXTB / C.UXTH 参考ARM UXTB/UXTH
 # 13. C.SH / C.LHU 参考RV32I SH/LHU
