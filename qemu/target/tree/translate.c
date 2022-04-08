@@ -915,12 +915,13 @@ static void decode_opc(CPURISCVState *env, DisasContext *ctx, uint16_t opcode)
     /* check for 48-bits private insn */
     if (extract16(opcode, 0, 5) == 0x1f) { // 48-bits with opcode[0:5] == 11111
         uint64_t opcode48 = opcode;
+        ctx->pc_succ_insn = ctx->base.pc_next + 6; // increase pc first, step 8bits
+
         opcode48 = deposit64(opcode48, 16, 32, // 16 + 32 = 48
                              translator_ldl(env, ctx->base.pc_next + 2));
         if (!decode_tree48(ctx, opcode48)) {
             gen_exception_illegal(ctx);
         }
-        ctx->pc_succ_insn = ctx->base.pc_next + 3;
     /* check for compressed insn */
     } else if (extract16(opcode, 0, 2) != 3) { // 16-bits with opcode[0:2] in {00, 01, 02}
         if (!has_ext(ctx, RVC)) {

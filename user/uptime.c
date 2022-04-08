@@ -217,8 +217,20 @@ void test_prf(void)
  */
 void test_l_li(void)
 {
-    // 高8位填充为一个0001=nop，以避免illegal insn(scause=2)
-    __asm__ __volatile__ (".8byte 0x0001beaf049f");
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    register int x9 asm("s1");
+
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    // 高8位填充为一个16bit指令, 852a=mov a0,a0, 以规避可能的对齐问题
+    printf(" ====> li s1,#0xdeadbeaf\n");
+    __asm__ __volatile__ (".8byte 0x852adeadbeaf049f");
+
+    printf("\n - x9=s1= 0x%x\n", x9);
 }
 
 /*
@@ -333,10 +345,10 @@ int main(int argc, char *argv[])
     printf("\n================ mia test ===========\n");
     test_mia();
 
-    // what code done, but debug todo
     printf("\n================ l.li test ===========\n");
     test_l_li();
 
+    // what code done, but debug todo
     printf("\n================ prf c.pop/c.push ===========\n");
     test_c_pop_push();
 
