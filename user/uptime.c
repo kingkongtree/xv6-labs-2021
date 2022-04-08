@@ -217,7 +217,8 @@ void test_prf(void)
  */
 void test_l_li(void)
 {
-    __asm__ __volatile__ (".8byte 0x0000beaf049f");
+    // 高8位填充为一个0001=nop，以避免illegal insn(scause=2)
+    __asm__ __volatile__ (".8byte 0x0001beaf049f");
 }
 
 /*
@@ -329,10 +330,10 @@ int main(int argc, char *argv[])
     printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
-    // what code done, but debug todo
     printf("\n================ mia test ===========\n");
     test_mia();
 
+    // what code done, but debug todo
     printf("\n================ l.li test ===========\n");
     test_l_li();
 
