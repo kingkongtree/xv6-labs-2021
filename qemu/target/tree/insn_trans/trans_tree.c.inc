@@ -119,12 +119,6 @@ static bool trans_ldmia(DisasContext *s, arg_ldmia *a)
     int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
     unsigned int mask = a->gpr_mask;
 
-    for (int i = 0; i < 16; ++i) {
-        if (a->rs1 == reg_list[i]) {
-            return false;
-        }
-    }
-
     TCGv target_mem_addr = tcg_temp_new();
     TCGv src_reg_index;
 
@@ -133,6 +127,11 @@ static bool trans_ldmia(DisasContext *s, arg_ldmia *a)
     for (int i = 0; i < 16; ++i) {
         if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
         if (!(mask & (1 << i))) continue; // check if masked
+
+        if (a->rs1 == reg_list[i]) { // rs1 should not masked
+            tcg_temp_free(target_mem_addr);
+            return false;
+        }
 
         src_reg_index = tcg_temp_new();
 
@@ -155,12 +154,6 @@ static bool trans_stmia(DisasContext *s, arg_stmia *a)
     int *reg_list = (a->ldm_e) ? caller_reg_list : callee_reg_list;
     unsigned int mask = a->gpr_mask;
 
-    for (int i = 0; i < 16; ++i) {
-        if (a->rs1 == reg_list[i]) {
-            return false;
-        }
-    }
-
     TCGv target_mem_addr = tcg_temp_new();
     TCGv src_reg_index;
 
@@ -169,6 +162,11 @@ static bool trans_stmia(DisasContext *s, arg_stmia *a)
     for (int i = 0; i < 16; ++i) {
         if (reg_list[i] == -1) break; // if meet undef reg, ignore all left.
         if (!(mask & (1 << i))) continue; // check if masked
+
+        if (a->rs1 == reg_list[i]) { // rs1 not should masked
+            tcg_temp_free(target_mem_addr);
+            return false;
+        }
 
         src_reg_index = tcg_temp_new(); // renew temp once
 
