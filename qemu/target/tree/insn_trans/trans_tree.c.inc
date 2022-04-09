@@ -206,29 +206,59 @@ static int ex_tree_cl(DisasContext *ctx, int imm)
 
 static bool trans_c_lbu(DisasContext *ctx, arg_i *a)
 {
+    TCGv addr = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+
+    gen_get_gpr(addr, a->rs1);
+    tcg_gen_addi_tl(addr, addr, a->imm);
+
+    tcg_gen_qemu_ld_tl(dat, addr, ctx->mem_idx, MO_UB); // dat = *(uint8_t *)addr
+    gen_set_gpr(a->rd, dat);
+    tcg_temp_free(addr);
+    tcg_temp_free(dat);
+    return true;
+}
+
+static bool trans_c_sb(DisasContext *ctx, arg_s *a)
+{
+    TCGv addr = tcg_temp_new();
+    TCGv dat = tcg_temp_new();
+
+    gen_get_gpr(addr, a->rs1);
+    tcg_gen_addi_tl(addr, addr, a->imm);
+    gen_get_gpr(dat, a->rs2);
+
+    tcg_gen_qemu_st_tl(dat, addr, ctx->mem_idx, MO_SB); // *(uint8_t *)addr = dat
+    tcg_temp_free(addr);
+    tcg_temp_free(dat);
+    return true;
+}
+
+static bool trans_c_lhu(DisasContext *ctx, arg_i *a)
+{
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
 
     gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, a->imm);
+    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
 
-    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UW); // dat = *(uint16_t *)addr
     gen_set_gpr(a->rd, t1);
     tcg_temp_free(t0);
     tcg_temp_free(t1);
     return true;
 }
 
-static bool trans_c_sb(DisasContext *ctx, arg_s *a)
+static bool trans_c_sh(DisasContext *ctx, arg_s *a)
 {
     TCGv t0 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
 
     gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, a->imm);
+    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
     gen_get_gpr(dat, a->rs2);
 
-    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SB);
+    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SW); // *(uint16_t *)addr = dat
     tcg_temp_free(t0);
     tcg_temp_free(dat);
     return true;
@@ -373,9 +403,11 @@ static bool trans_bgeui(DisasContext *ctx, arg_bgeui *a)
 static bool trans_c_utxb(DisasContext *ctx, arg_c_utx *a)
 {
     TCGv t_rs = tcg_temp_new();
+
     gen_get_gpr(t_rs, a->rs1);
 
     tcg_gen_andi_tl(t_rs, t_rs, 255);
+
     gen_set_gpr(a->rs1, t_rs);
 
     tcg_temp_free(t_rs);
@@ -385,48 +417,16 @@ static bool trans_c_utxb(DisasContext *ctx, arg_c_utx *a)
 
 static bool trans_c_utxh(DisasContext *ctx, arg_c_utx *a)
 {
-    TCGv source1 = tcg_temp_new();
-    TCGv source2 = tcg_temp_new();
+    TCGv t_rs = tcg_temp_new();
 
-    gen_get_gpr(source1, a->rs1);
+    gen_get_gpr(t_rs, a->rs1);
 
-    tcg_gen_movi_tl(source2, 16);
-    tcg_gen_shl_tl(source1, source1, source2);
-    tcg_gen_shr_tl(source1, source1, source2);
+    tcg_gen_andi_tl(t_rs, t_rs, 65535);
 
-    gen_set_gpr(a->rs1, source1);
-    tcg_temp_free(source1);
-    tcg_temp_free(source2);
-    return true;
-}
+    gen_set_gpr(a->rs1, t_rs);
 
-static bool trans_c_lhu(DisasContext *ctx, arg_i *a)
-{
-    TCGv t0 = tcg_temp_new();
-    TCGv t1 = tcg_temp_new();
+    tcg_temp_free(t_rs);
 
-    gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
-
-    tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UW);
-    gen_set_gpr(a->rd, t1);
-    tcg_temp_free(t0);
-    tcg_temp_free(t1);
-    return true;
-}
-
-static bool trans_c_sh(DisasContext *ctx, arg_s *a)
-{
-    TCGv t0 = tcg_temp_new();
-    TCGv dat = tcg_temp_new();
-
-    gen_get_gpr(t0, a->rs1);
-    tcg_gen_addi_tl(t0, t0, a->imm << 1); // step 16-bits
-    gen_get_gpr(dat, a->rs2);
-
-    tcg_gen_qemu_st_tl(dat, t0, ctx->mem_idx, MO_SW);
-    tcg_temp_free(t0);
-    tcg_temp_free(dat);
     return true;
 }
 

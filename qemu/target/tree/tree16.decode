@@ -132,7 +132,7 @@ addw              100 1 11 ... 01 ... 01 @cs_2
 
 # *** RV32/64C Standard Extension (Quadrant 2) ***
 slli              000 .  .....  ..... 10 @c_shift2
-fld               001 .  .....  ..... 10 @c_ldsp
+#fld               001 .  .....  ..... 10 @c_ldsp
 {
   illegal         010 -  00000  ----- 10 # c.lwsp, RES rd=0
   lw              010 .  .....  ..... 10 @c_lwsp
@@ -147,7 +147,7 @@ fld               001 .  .....  ..... 10 @c_ldsp
   jalr            100 1  .....  00000 10 @c_jalr rd=1  # C.JALR
   add             100 1  .....  ..... 10 @cr
 }
-fsd               101   ......  ..... 10 @c_sdsp
+#fsd               101   ......  ..... 10 @c_sdsp
 sw                110 .  .....  ..... 10 @c_swsp
 
 # *** RV32C and RV64C specific Standard Extension (Quadrant 2) ***
@@ -197,6 +197,12 @@ c_utxb      100111 ... 10 00001  @c_utx
 c_utxh      100111 ... 11 00001  @c_utx
 
 # *** c.sh / c.lhu ***
-# b0:2 from 10 to 11 for overlap
-c_lhu       001  ... ... .. ... 11 @cl_tree
-c_sh        101  ... ... .. ... 11 @cs_tree
+{
+  c_lhu       001  ... ... .. ... 10 @cl_tree
+  fld         001 .  .....  ..... 10 @c_ldsp
+}
+
+{
+  c_sh        101  ... ... .. ... 10 @cs_tree
+  fsd         101   ......  ..... 10 @c_sdsp
+}

@@ -300,24 +300,24 @@ void test_c_lbu_sb(void)
 }
 
 /*
- * c.lbh/c.sh: b0:2 from 10 to 11 for overlap
+ * c.lbh/c.sh:
  * +-----+---------+-----------+-----+-----------+----+----+
- * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 11 | // c.lbu
- * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 11 | // c.sb
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 10 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 10 | // c.sb
  * +-----+---------+-----------+-----+-----------+----+----+
  * 15    12        11          9     6           4    1    0
  */
-void test_c_lbh_sh(void)
+void test_c_lhu_sh(void)
 {
-     __asm__ __volatile__ ("li a4, 0xabcdef98");
+    __asm__ __volatile__ ("li a4, 0xabcdef76");
     __asm__ __volatile__ ("addi a5,x2,0");
 
-    INSN16(0xabb) // c.sh a4, #16(a5)
+    INSN16(0xab9a) // c.sh a4, #16(a5)
 
     __asm__ __volatile__ ("li a4, 0xdeadbeaf");
     __asm__ __volatile__ ("addi a5,x2,0");
 
-    INSN16(0x2b9b) // c.lhu a4, #16(a5)
+    INSN16(0x2b9a) // c.lhu a4, #16(a5)
 }
 
 /*
@@ -403,10 +403,10 @@ int main(int argc, char *argv[])
     printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
-    // what code done, but debug todo
     printf("\n================ c.lbh/c.sh test ===========\n");
-    test_c_lbh_sh();
+    test_c_lhu_sh();
 
+    // what code done, but debug todo
     printf("\n================ bcondi test ===============\n");
     test_bcondi();
 

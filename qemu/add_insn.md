@@ -1057,9 +1057,15 @@ void test_c_utx(void)
 # 13. C.SH / C.LHU
 ```
 # *** c.sh / c.lhu ***
-# b0:2 from 10 to 11 for overlap
-c_lhu       001  ... ... .. ... 11 @cl_tree
-c_sh        101  ... ... .. ... 11 @cs_tree
+{
+  c_lhu       001  ... ... .. ... 10 @cl_tree
+  fld         001 .  .....  ..... 10 @c_ldsp
+}
+
+{
+  c_sh        101  ... ... .. ... 10 @cs_tree
+  fsd         101   ......  ..... 10 @c_sdsp
+}
 
 static bool trans_c_lhu(DisasContext *ctx, arg_i *a)
 {
@@ -1091,8 +1097,60 @@ static bool trans_c_sh(DisasContext *ctx, arg_s *a)
     return true;
 }
 ```
-- 验证
+- 验证: 
 ```
+/*
+ * c.lbh/c.sh:
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 10 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 10 | // c.sb
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * 15    12        11          9     6           4    1    0
+ */
+void test_c_lhu_sh(void)
+{
+    __asm__ __volatile__ ("li a4, 0xabcdef76");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0xab9a) // c.sh a4, #16(a5)
+
+    __asm__ __volatile__ ("li a4, 0xdeadbeaf");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0x2b9a) // c.lhu a4, #16(a5)
+}
+```
+- before c.sh
+```
+sp             0x3fb0   0x3fb0
+a4             0xabcdef76       2882400152 
+a5             0x3fb0   0x3fb0
+(gdb) p /x *(0x3fd0)
+$1 = 0x3fa0 // = (*a4) & 0xff, 0x3fd0 = 0x3fb0 + (16 <<  1)
+```
+- after c.sh
+```
+sp             0x3fb0   0x3fb0
+a4             0xabcdef76       2882400152 
+a5             0x3fb0   0x3fb0
+(gdb) p /x *(0x3fd0)
+$1 = 0xef76 // = (*a4) & 0xff
+```
+- before c.lhu
+```
+sp             0x3fb0   0x3fb0
+a4             0xdeadbeaf       3735928495
+a5             0x3fb0   0x3fb0
+(gdb) p /x *(0x3fd0)
+$1 = 0xef76 // = (*a4) & 0xff
+```
+- after c.lhu
+```
+sp             0x3fb0   0x3fb0
+a4             0xef76   61302
+a5             0x3fb0   0x3fb0
+(gdb) p /x *(0x3fd0)
+$1 = 0xef76 // = (*a4) & 0xff
 ```
 # 14. MULTADD
 ```
@@ -1675,7 +1733,6 @@ Breakpoint 1 at 0x3de: file user/uptime.c, line 290.
 ```
 sp             0x3fb0   0x3fb0
 a4             0xabcdef98       2882400152
-a5             0xa      10
 a5             0x3fb0   16304
 (gdb) p /x *(0x3fc0)
 $1 = 0x63
@@ -1684,7 +1741,6 @@ $1 = 0x63
 ```
 sp             0x3fb0   0x3fb0
 a4             0xabcdef98       2882400152
-a5             0xa      10
 a5             0x3fb0   16304
 (gdb) p /x *(0x3fc0)
 $1 = 0x98 // = (*a4) & 0xff
@@ -1693,7 +1749,6 @@ $1 = 0x98 // = (*a4) & 0xff
 ```
 sp             0x3fb0   0x3fb0
 a4             0xdeadbeaf       3735928495
-a5             0xa      10
 a5             0x3fb0   16304
 (gdb) p /x *(0x3fc0)
 $1 = 0x98 // = (*a4) & 0xff
@@ -1702,7 +1757,6 @@ $1 = 0x98 // = (*a4) & 0xff
 ```
 sp             0x3fb0   0x3fb0
 a4             0x98     152
-a5             0xa      10
 a5             0x3fb0   16304
 (gdb) p /x *(0x3fc0)
 $1 = 0x98 // = (*a4) & 0xff
