@@ -302,7 +302,7 @@
         return true;
     }
     ```
-- 验证
+- [验证](#16-debug-stmialdmia)
 ```
 #define INSN(value)                                 \
         __asm__ __volatile__ (".word "#value);      \
@@ -762,8 +762,8 @@ void test_c_lbu_sb(void)
 
     INSN16(0x2b98) // c.lbu
 }
-> 使用gdb验证
 ```
+- [验证](#18-csbclbu-验证)
 # 10. C.POP/C.PUSH/C.POPRET
 - 参考RX ISA实现
     - ./target/tree/tree32.decode
@@ -866,6 +866,9 @@ void test_c_lbu_sb(void)
         return true;
     }
     ```
+- 验证
+```
+```
 # 11. BCONDI
 - 实现：对BCOND指令的简单移植
 ```
@@ -1051,7 +1054,7 @@ void test_c_utx(void)
 
  - x9=s1= 0xEF01
 ```
-# 13. C.SH / C.LHU 参考RV32I SH/LHU
+# 13. C.SH / C.LHU
 ```
 # *** c.sh / c.lhu ***
 # b0:2 from 10 to 11 for overlap
@@ -1088,7 +1091,10 @@ static bool trans_c_sh(DisasContext *ctx, arg_s *a)
     return true;
 }
 ```
-# 14. MULTADD 参考RV32I MUL/ADD
+- 验证
+```
+```
+# 14. MULTADD
 ```
 # *** muliadd ***
 %muli_uimm 14:1 25:7
@@ -1117,7 +1123,10 @@ static bool trans_muliadd(DisasContext *ctx, arg_muliadd *a)
 }
 
 ```
-# 15. J16M / JAL16M 参考 RV32I JMP/JAL
+- 验证
+```
+```
+# 15. J16M / JAL16M
 ```
 # *** j16m / jal16m ***
 %j16m   21:s10 20:1 12:8 31:1 8:4
@@ -1139,6 +1148,9 @@ static bool trans_jal16m(DisasContext *ctx, arg_j16m *a)
     gen_jal(ctx, 1, a->simm << 1); // pc = ra + sext(simm * 2)
     return true;
 }
+```
+- 验证
+```
 ```
 # 16. debug stmia/ldmia
 ## 16.1 Illegal Instruction
@@ -1590,7 +1602,7 @@ _pthread_start (@_pthread_start:40)
 ```
     ctx->pc_succ_insn = ctx->base.pc_next + 6; // increase pc first, step 8bits
 ```
-- 验证
+- [验证](#17-lli-debug)
 ```
 void test_l_li(void)
 {

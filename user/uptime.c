@@ -300,6 +300,30 @@ void test_c_lbu_sb(void)
 }
 
 /*
+ * c.lbh/c.sh: b0:2 from 10 to 11 for overlap
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 11 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 11 | // c.sb
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * 15    12        11          9     6           4    1    0
+ */
+void test_c_lbh_sh(void)
+{
+     __asm__ __volatile__ ("li a4, 0xabcdef98");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0xab98) // c.sh
+
+    __asm__ __volatile__ ("li a4, 0xdeadbeaf");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0x2b98) // c.lhu
+
+    INSN16(0xac67) // c.sh
+    INSN16(0x2c67) // c.lhu
+}
+
+/*
  * c.pop/c.popret/c.push: 
  * +-----+---------+--------+----+----+
  * | 100 | sp16imm | rcount | 00 | 00 | // c.pop
@@ -347,25 +371,6 @@ void test_bcondi(void)
     INSN(0x6404f1bf) // bgeui
 }
 
-/*
- * c.lbh/c.sh: b0:2 from 10 to 11 for overlap
- * +-----+---------+-----------+-----+-----------+----+----+
- * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 11 | // c.lbu
- * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 11 | // c.sb
- * +-----+---------+-----------+-----+-----------+----+----+
- * 15    12        11          9     6           4    1    0
- */
-void test_c_lbh_sh(void)
-{
-    register int x2 asm("sp");
-    register int x1 asm("ra");
-    register int x8 asm("s0");
-    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
-
-    INSN16(0xac67) // c.sh
-    INSN16(0x2c67) // c.lhu
-}
-
 int main(int argc, char *argv[])
 {
     if (argc > 1) {
@@ -398,10 +403,10 @@ int main(int argc, char *argv[])
     printf("\n================ c.utx test ==================\n");
     test_c_utx();
 
-    // what code done, but debug todo
     printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
+    // what code done, but debug todo
     printf("\n================ c.lbh/c.sh test ===========\n");
     test_c_lbh_sh();
 
@@ -410,6 +415,9 @@ int main(int argc, char *argv[])
 
     printf("\n================ prf c.pop/c.push ==========\n");
     test_c_pop_push();
+
+    // todo muliadd
+    // todo j16m / jal16m
 
     exit(0);
 }
