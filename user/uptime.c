@@ -1,6 +1,18 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
+int orsra_4(int rs1, int rs2)
+{
+    int rd;
+    __asm__ __volatile__ (
+       ".insn r 0x1b, 2, 68, %[rd], %[rs1], %[rs2]"
+             :[rd]"=r"(rd)
+             :[rs1]"r"(rs1),[rs2]"r"(rs2)
+     );
+    
+    return rd;
+}
+
 /*
  * R type: .insn r opcode, func3, func7, rd, rs1, rs2
  * +-------+-----+-----+-------+----+-------------+
@@ -28,20 +40,14 @@ int addsll_2(int rs1, int rs2)
     return rd;
 }
 
-int orsra_4(int rs1, int rs2)
-{
-    int rd;
-    __asm__ __volatile__ (
-       ".insn r 0x1b, 2, 68, %[rd], %[rs1], %[rs2]"
-             :[rd]"=r"(rd)
-             :[rs1]"r"(rs1),[rs2]"r"(rs2)
-     );
-    
-    return rd;
-}
+#define INSN16(value)                               \
+        __asm__ __volatile__ (".2byte "#value);     \
 
-#define INSN(value)                             \
-        __asm__ __volatile__ (".word "#value);  \
+#define INSN(value)                                 \
+        __asm__ __volatile__ (".word "#value);      \
+
+#define INSN64(value)                               \
+        __asm__ __volatile__ (".8byte "#value);     \
 
 void print_gprs(void)
 {
@@ -117,43 +123,43 @@ void test_mia(void)
     __asm__ __volatile__ ("li s10, 20");
     __asm__ __volatile__ ("li s11, 21");
 
-    printf(" ==>ldmia {x27} (sp)\n");
+    printf("\n ====>ldmia {x27} (sp)\n");
     print_gprs();
     INSN(0x0001008b) // x27 = s11
 
-    printf(" ==>ldmia {x23-x27} (sp)\n");
+    printf("\n ====>ldmia {x23-x27} (sp)\n");
     print_gprs();
     INSN(0x00010f8b) // x23-x27 = s7-s11
 
-    printf(" ==>ldmia {x19-x27} (sp)\n");
+    printf("\n ====>ldmia {x19-x27} (sp)\n");
     print_gprs();
     INSN(0x00f10f8b) // x19-x27 = s3-s11
 
-    printf(" ==>ldmia {x18-27} (sp)\n");
+    printf("\n ====>ldmia {x18-27} (sp)\n");
     print_gprs();
     INSN(0x01f10f8b) // x18-x27 =s2-s11
 
-    printf(" ==>stmia {x27} (sp)\n");
+    printf("\n ====>stmia {x27} (sp)\n");
     print_gprs();
     INSN(0x0001108b) // x27 = s11
 
-    printf(" ==>stmia {x23-x27} (sp)\n");
+    printf("\n ====>stmia {x23-x27} (sp)\n");
     print_gprs();
     INSN(0x00011f8b) // x23-x27 = s7-s11
 
-    printf(" ==>stmia {x19-27} (sp)\n");
+    printf("\n ====>stmia {x19-27} (sp)\n");
     print_gprs();
     INSN(0x00f11f8b) // x19-x27 = s3-s11
 
-    printf(" ==>stmia {x18-27} (sp)\n");
+    printf("\n ====>stmia {x18-27} (sp)\n");
     print_gprs();
     INSN(0x01f11f8b) // x18-x27 =s2-s11
 
-    // printf(" ==>stmia {x9, x18-27} (sp)\n");
+    // printf("\n ====>stmia {x9, x18-27} (sp)\n");
     // print_gprs();
     // INSN(0x03f12f8b) // x9, x18-x27 = s1, s2-s11
 
-    // printf(" ==>stmia {x8-x9, x18-27} (sp)\n");
+    // printf("\n ====>stmia {x8-x9, x18-27} (sp)\n");
     // print_gprs();
     // INSN(0x07f12f8b) // x8-x9, x18-x27 = s0-s1, s2-s11
 
@@ -169,27 +175,27 @@ void test_mia(void)
     __asm__ __volatile__ ("li s10, 110");
     __asm__ __volatile__ ("li s11, 111");
 
-    printf(" ==>ldmia {x27} (sp)\n");
+    printf("\n ====>ldmia {x27} (sp)\n");
     print_gprs();
     INSN(0x0001008b) // x27 = s11
 
-    printf(" ==>ldmia {x23-x27} (sp)\n");
+    printf("\n ====>ldmia {x23-x27} (sp)\n");
     print_gprs();
     INSN(0x00010f8b) // x23-x27 = s7-s11
 
-    printf(" ==>ldmia {x19-x27} (sp)\n");
+    printf("\n ====>ldmia {x19-x27} (sp)\n");
     print_gprs();
     INSN(0x00f10f8b) // x19-x27 = s3-s11
 
-    printf(" ==>ldmia {x18-27} (sp)\n");
+    printf("\n ====>ldmia {x18-27} (sp)\n");
     print_gprs();
     INSN(0x01f10f8b) // x18-x27 =s2-s11
 
-    // printf(" ==>ldmia {x9, x18-27} (sp)\n");
+    // printf("\n ====>ldmia {x9, x18-27} (sp)\n");
     // print_gprs();
     // INSN(0x03f10f8b) // x9, x18-x27 = s1, s2-s11
 
-    // printf(" ==>ldmia {x8-x9, x18-x27} (sp)\n");
+    // printf("\n ====>ldmia {x8-x9, x18-x27} (sp)\n");
     // print_gprs();
     // INSN(0x07f10f8b) // x8-x9, x18-x27 = s0-s1, s2-s11
 }
@@ -204,7 +210,14 @@ void test_mia(void)
  */
 void test_prf(void)
 {
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    printf("\n ====> prefi s1 #0x15\n");
     INSN(0x5404a00b) // prefi
+    printf("\n ====> prefd s1 #0x15\n");
     INSN(0x5404b00b) // prefd
 }
 
@@ -226,10 +239,42 @@ void test_l_li(void)
 
     printf("\n - x9=s1= 0x%x\n", x9);
 
-    // 高8位填充为一个16bit指令, 852a=mov a0,a0, 以规避可能的对齐问题
-    printf(" ====> li s1,#0xdeadbeaf\n");
-    __asm__ __volatile__ (".8byte 0x852adeadbeaf049f");
+    printf("\n ====> li s1,#0xdeadbeaf\n");
 
+    // 高8位填充为一个16bit指令, 852a=mov a0,a0, 以规避可能的对齐问题
+    INSN64(0x852adeadbeaf049f)
+
+    printf("\n - x9=s1= 0x%x\n", x9);
+}
+
+/*
+ * c.utxb/c.utxh: b5:2 from 00/01 to 10/11 for overlap
+ * +--------+-----+----+-------+
+ * | 100111 | rs1 | 10 | 00001 | // c.utxb
+ * | 100111 | rs1 | 11 | 00001 | // c.utxh
+ * +--------+-----+----+-------+
+ * 15       10    7    5       0
+ */
+void test_c_utx(void)
+{
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    register int x9 asm("s1");
+    __asm__ __volatile__ ("li s1, 0xabcdef01");
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    printf("\n ====> c.utxb s1\n");
+    INSN16(0x9cc1) // c.utxb
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    __asm__ __volatile__ ("li s1, 0xabcdef01");
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    printf("\n ====> c.utxh s1\n");
+    INSN16(0x9ce1) // c.utxh
     printf("\n - x9=s1= 0x%x\n", x9);
 }
 
@@ -243,8 +288,15 @@ void test_l_li(void)
  */
 void test_c_lbu_sb(void)
 {
-    __asm__ __volatile__ (".2byte 0xac64"); // c.sb
-    __asm__ __volatile__ (".2byte 0x2c64"); // c.lbu
+    __asm__ __volatile__ ("li a4, 0xabcdef98");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0xab98) // c.sb
+
+    __asm__ __volatile__ ("li a4, 0xdeadbeaf");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0x2b98) // c.lbu
 }
 
 /*
@@ -258,9 +310,14 @@ void test_c_lbu_sb(void)
  */
 void test_c_pop_push(void)
 {
-    __asm__ __volatile__ (".2byte 0x8a30"); // c.pop
-    __asm__ __volatile__ (".2byte 0x8a3c"); // c.push
-    __asm__ __volatile__ (".2byte 0x8a34"); // c.popret
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    INSN16(0x8a30) // c.pop
+    INSN16(0x8a3c) // c.push
+    INSN16(0x8a34) // c.popret
 }
 
 /*
@@ -277,26 +334,17 @@ void test_c_pop_push(void)
  */
 void test_bcondi(void)
 {
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
     INSN(0x640481bf) // beqi
     INSN(0x640491bf) // bnei
     INSN(0x6404c1bf) // blti
     INSN(0x6404d1bf) // bgei
     INSN(0x6404e1bf) // bltui
     INSN(0x6404f1bf) // bgeui
-}
-
-/*
- * c.utxb/c.utxh: b5:2 from 00/01 to 10/11 for overlap
- * +--------+-----+----+-------+
- * | 100111 | rs1 | 10 | 00001 | // c.utxb
- * | 100111 | rs1 | 11 | 00001 | // c.utxh
- * +--------+-----+----+-------+
- * 15       10    7    5       0
- */
-void test_c_utx(void)
-{
-    __asm__ __volatile__ (".2byte 0x9cc1"); // c.utxb
-    __asm__ __volatile__ (".2byte 0x9ce1"); // c.utxh
 }
 
 /*
@@ -309,17 +357,17 @@ void test_c_utx(void)
  */
 void test_c_lbh_sh(void)
 {
-    __asm__ __volatile__ (".2byte 0xac67"); // c.sh
-    __asm__ __volatile__ (".2byte 0x2c67"); // c.lhu
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    INSN16(0xac67) // c.sh
+    INSN16(0x2c67) // c.lhu
 }
 
 int main(int argc, char *argv[])
 {
-    register int x2 asm("sp");
-    register int x1 asm("ra");
-    register int x8 asm("s0");
-    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
-
     if (argc > 1) {
         fprintf(2, "uptime with invalid argc %d\n", argc);
         exit(1);
@@ -328,35 +376,40 @@ int main(int argc, char *argv[])
     int ret = uptime();
     printf("%d\n", ret);
 
-    printf("\n================ preshf test ===========\n");
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    printf("\n================ preshf test ===============\n");
     int r1 = 3, r2 = 2;
     printf("addshf,3,2,sll #2 =%d\n", addsll_2(r1,r2));
     printf("orshf,3,2,sra #4 =%d\n", orsra_4(r1,r2));
 
-    printf("\n================ prf test ===========\n");
+    printf("\n================ mia test ==================\n");
+    test_mia();
+
+    printf("\n================ prf test ==================\n");
     test_prf();
 
-    printf("\n================ c.utx test ===========\n");
-    test_prf();
+    printf("\n================ l.li test =================\n");
+    test_l_li();
 
+    printf("\n================ c.utx test ==================\n");
+    test_c_utx();
+
+    // what code done, but debug todo
     printf("\n================ c.lbu/c.sb test ===========\n");
     test_c_lbu_sb();
 
-    printf("\n================ mia test ===========\n");
-    test_mia();
-
-    printf("\n================ l.li test ===========\n");
-    test_l_li();
-
-    // what code done, but debug todo
-    printf("\n================ prf c.pop/c.push ===========\n");
-    test_c_pop_push();
-
-    printf("\n================ bcondi test ===========\n");
-    test_bcondi();
-
     printf("\n================ c.lbh/c.sh test ===========\n");
     test_c_lbh_sh();
+
+    printf("\n================ bcondi test ===============\n");
+    test_bcondi();
+
+    printf("\n================ prf c.pop/c.push ==========\n");
+    test_c_pop_push();
 
     exit(0);
 }

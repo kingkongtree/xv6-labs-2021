@@ -206,55 +206,15 @@
         return rd; 
     }
 
-    #define INSN(value)                             \
-        __asm__ __volatile__ (".word "#value);      \
+    printf("\n================ preshf test ===============\n");
+    int r1 = 3, r2 = 2;
+    printf("addshf,3,2,sll #2 =%d\n", addsll_2(r1,r2));
+    printf("orshf,3,2,sra #4 =%d\n", orsra_4(r1,r2));
 
-    void print_gprs(void)
-    {
-        register int x0 asm("zero");
-        register int x1 asm("ra");
-        register int x2 asm("sp");
-        register int x3 asm("gp");
-        register int x4 asm("tp");
-        register int x5 asm("t0");
-        register int x6 asm("t1");
-        register int x7 asm("t2");
-        register int x8 asm("s0");
-        register int x9 asm("s1");
-        register int x10 asm("a0");
-        register int x11 asm("a1");
-        register int x12 asm("a2");
-        register int x13 asm("a3");
-        register int x14 asm("a4");
-        register int x15 asm("a5");
-        register int x16 asm("a6");
-        register int x17 asm("a7");
-        register int x18 asm("s2");
-        register int x19 asm("s3");
-        register int x20 asm("s4");
-        register int x21 asm("s5");
-        register int x22 asm("s6");
-        register int x23 asm("s7");
-        register int x24 asm("s8");
-        register int x25 asm("s9");
-        register int x26 asm("s10");
-        register int x27 asm("s11");
-        register int x28 asm("t3");
-        register int x29 asm("t4");
-        register int x30 asm("t5");
-        register int x31 asm("t6");
-
-        printf("system regs: \n - x0=zero= %d\n - x3=gp= 0x%x\n - x4=tp= 0x%x\n",
-                x0, x3, x4);
-
-        printf("caller regs: \n - x1=ra= 0x%x\n - x5:7=t0:2= %d, %d, %d\n - x28:31=t3:6= %d, %d, %d, %d\n",
-                x1, x5, x6, x7, x28, x29, x30, x31);
-        printf("callee regs: \n - x10:17=a0:7= %d, %d, %d, %d, %d, %d, %d, %d\n",
-                x10, x11, x12, x13, x14, x15, x16, x17);
-
-        printf("callee regs: \n - x2=sp= 0x%x\n - x8=fp= 0x%x\n - x9=s1= %d\n - x18:x27=s2:11= %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
-                x2, x8, x9, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27);
-    }
+    $
+    ================ preshf test ===============
+    addshf,3,2,sll #2 =11
+    orshf,3,2,sra #4 =3
     ```
 # 5. LDMIA
 - [LDM-LDMIA-LDMFD--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/LDM-LDMIA-LDMFD--Thumb-)
@@ -300,28 +260,6 @@
         return true;
     }
     ```
-- 验证
-    ```
-    /*
-    * ldmia: 
-    * +---+---------------+------+-----+-----------+---------+
-    * | e | mask[15:5]    | rs1  | 000 | mask[4:0] | 0001011 |
-    * +---+---------------+------+-----+-----------+---------+
-    * 31  30              19     14    11          6         0
-    */
-    static inline void ldmia_sp(void)
-    {
-        printf("==> ldmia-callee {x8-x9, x18-x27}, (sp)\n");
-
-        print_gprs();
-
-        // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
-        printf("==> cpu-exec 0x%x\n", 0x0ff10f0b);
-        INSN(0x0ff10f0b)
-
-        print_gprs();
-    }
-    ```
 # 6. STMIA
 - [STM-STMIA-STMEA--Thumb](https://developer.arm.com/documentation/ddi0406/cb/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/STM--STMIA--STMEA-)
 - [Arm Armv8-A A32/T32](https://documentation-service.arm.com/static/61c04ba12183326f217711e0?token=) P480
@@ -365,27 +303,239 @@
     }
     ```
 - 验证
-    ```
-    /*
-    * stmia: 
-    * +---+---------------+------+-----+-----------+---------+
-    * | e | mask[15:5]    | rs1  | 001 | mask[4:0] | 0001011 |
-    * +---+---------------+------+-----+-----------+---------+
-    * 31  30              19     14    11          6         0
-    */
-    static inline void stmia_sp(void)
-    {
-        printf("==> stmia-callee {x8-x9, x18-x27}, (sp)\n");
+```
+#define INSN(value)                                 \
+        __asm__ __volatile__ (".word "#value);      \
 
-        print_gprs();
 
-        // ldm_e = 0, gpr_mask=8190=0b1111111111110, rs1=2
-        printf("==> cpu-exec 0x%x\n", 0x0ff11f0b);
-        INSN(0x0ff11f0b)
+void print_gprs(void)
+{
+    // register int x0 asm("zero");
+    // register int x1 asm("ra");
+    register int x2 asm("sp");
+    // register int x3 asm("gp");
+    // register int x4 asm("tp");
+    // register int x5 asm("t0");
+    // register int x6 asm("t1");
+    // register int x7 asm("t2");
+    register int x8 asm("s0");
+    register int x9 asm("s1");
+    // register int x10 asm("a0");
+    // register int x11 asm("a1");
+    // register int x12 asm("a2");
+    // register int x13 asm("a3");
+    // register int x14 asm("a4");
+    // register int x15 asm("a5");
+    // register int x16 asm("a6");
+    // register int x17 asm("a7");
+    register int x18 asm("s2");
+    register int x19 asm("s3");
+    register int x20 asm("s4");
+    register int x21 asm("s5");
+    register int x22 asm("s6");
+    register int x23 asm("s7");
+    register int x24 asm("s8");
+    register int x25 asm("s9");
+    register int x26 asm("s10");
+    register int x27 asm("s11");
+    // register int x28 asm("t3");
+    // register int x29 asm("t4");
+    // register int x30 asm("t5");
+    // register int x31 asm("t6");
 
-        print_gprs();
-    }
-    ```
+    // printf(" - x0=zero= %d\n - x3=gp= 0x%x\n - x4=tp= 0x%x\n",
+    //         x0, x3, x4);
+
+    // printf(" - x1=ra= 0x%x\n - x5:7=t0:2= %d, %d, %d\n - x28:31=t3:6= %d, %d, %d, %d\n",
+    //         x1, x5, x6, x7, x28, x29, x30, x31);
+    // printf(" - x10:17=a0:7= %d, %d, %d, %d, %d, %d, %d, %d\n",
+    //         x10, x11, x12, x13, x14, x15, x16, x17);
+
+    printf(" - x2=sp= 0x%x\n - x8=fp= 0x%x\n - x9=s1= %d\n - x18:x27=s2:11= %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
+            x2, x8, x9, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27);
+}
+
+/*
+ * stmia: 
+ * +---+---------------+------+-----+-----------+---------+
+ * | e | mask[15:5]    | rs1  | 001 | mask[4:0] | 0001011 | // stmia
+ * | e | mask[15:5]    | rs1  | 000 | mask[4:0] | 0001011 | // ldmia
+ * +---+---------------+------+-----+-----------+---------+
+ * 31  30              19     14    11          6         0
+ */
+void test_mia(void)
+{
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    __asm__ __volatile__ ("li s1, 11");
+    __asm__ __volatile__ ("li s2, 12");
+    __asm__ __volatile__ ("li s3, 13");
+    __asm__ __volatile__ ("li s4, 14");
+    __asm__ __volatile__ ("li s5, 15");
+    __asm__ __volatile__ ("li s6, 16");
+    __asm__ __volatile__ ("li s7, 17");
+    __asm__ __volatile__ ("li s8, 18");
+    __asm__ __volatile__ ("li s9, 19");
+    __asm__ __volatile__ ("li s10, 20");
+    __asm__ __volatile__ ("li s11, 21");
+
+    printf("\n ====>ldmia {x27} (sp)\n");
+    print_gprs();
+    INSN(0x0001008b) // x27 = s11
+
+    printf("\n ====>ldmia {x23-x27} (sp)\n");
+    print_gprs();
+    INSN(0x00010f8b) // x23-x27 = s7-s11
+
+    printf("\n ====>ldmia {x19-x27} (sp)\n");
+    print_gprs();
+    INSN(0x00f10f8b) // x19-x27 = s3-s11
+
+    printf("\n ====>ldmia {x18-27} (sp)\n");
+    print_gprs();
+    INSN(0x01f10f8b) // x18-x27 =s2-s11
+
+    printf("\n ====>stmia {x27} (sp)\n");
+    print_gprs();
+    INSN(0x0001108b) // x27 = s11
+
+    printf("\n ====>stmia {x23-x27} (sp)\n");
+    print_gprs();
+    INSN(0x00011f8b) // x23-x27 = s7-s11
+
+    printf("\n ====>stmia {x19-27} (sp)\n");
+    print_gprs();
+    INSN(0x00f11f8b) // x19-x27 = s3-s11
+
+    printf("\n ====>stmia {x18-27} (sp)\n");
+    print_gprs();
+    INSN(0x01f11f8b) // x18-x27 =s2-s11
+
+    // printf("\n ====>stmia {x9, x18-27} (sp)\n");
+    // print_gprs();
+    // INSN(0x03f12f8b) // x9, x18-x27 = s1, s2-s11
+
+    // printf("\n ====>stmia {x8-x9, x18-27} (sp)\n");
+    // print_gprs();
+    // INSN(0x07f12f8b) // x8-x9, x18-x27 = s0-s1, s2-s11
+
+    __asm__ __volatile__ ("li s1, 101");
+    __asm__ __volatile__ ("li s2, 102");
+    __asm__ __volatile__ ("li s3, 103");
+    __asm__ __volatile__ ("li s4, 104");
+    __asm__ __volatile__ ("li s5, 105");
+    __asm__ __volatile__ ("li s6, 106");
+    __asm__ __volatile__ ("li s7, 107");
+    __asm__ __volatile__ ("li s8, 108");
+    __asm__ __volatile__ ("li s9, 109");
+    __asm__ __volatile__ ("li s10, 110");
+    __asm__ __volatile__ ("li s11, 111");
+
+    printf("\n ====>ldmia {x27} (sp)\n");
+    print_gprs();
+    INSN(0x0001008b) // x27 = s11
+
+    printf("\n ====>ldmia {x23-x27} (sp)\n");
+    print_gprs();
+    INSN(0x00010f8b) // x23-x27 = s7-s11
+
+    printf("\n ====>ldmia {x19-x27} (sp)\n");
+    print_gprs();
+    INSN(0x00f10f8b) // x19-x27 = s3-s11
+
+    printf("\n ====>ldmia {x18-27} (sp)\n");
+    print_gprs();
+    INSN(0x01f10f8b) // x18-x27 =s2-s11
+
+    // printf("\n ====>ldmia {x9, x18-27} (sp)\n");
+    // print_gprs();
+    // INSN(0x03f10f8b) // x9, x18-x27 = s1, s2-s11
+
+    // printf("\n ====>ldmia {x8-x9, x18-x27} (sp)\n");
+    // print_gprs();
+    // INSN(0x07f10f8b) // x8-x9, x18-x27 = s0-s1, s2-s11
+}
+
+================ mia test ==================
+ - x2=sp= 0x3FB0
+ - x1=ra= 0x58C
+ - x8=fp= 0x3FC0
+
+ ====>ldmia {x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+
+ ====>ldmia {x23-x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 12, 13, 14, 15, 16, 17, 18, 19, 20, 16352
+
+ ====>ldmia {x19-x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 12, 13, 14, 15, 16, 16288, 81744, 99, 1420, 16352
+
+ ====>ldmia {x18-27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 12, 1769238645, 0, 16368, 254, 16288, 81744, 99, 1420, 16352
+
+ ====>stmia {x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 0, 1769238645, 0, 16368, 254, 16288, 81744, 99, 1420, 16352
+
+ ====>stmia {x23-x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 0, 1769238645, 0, 16368, 254, 16288, 81744, 99, 1420, 16352
+
+ ====>stmia {x19-27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 0, 1769238645, 0, 16368, 254, 16288, 81744, 99, 1420, 16352
+
+ ====>stmia {x18-27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 11
+ - x18:x27=s2:11= 0, 1769238645, 0, 16368, 254, 16288, 81744, 99, 1420, 16352
+
+ ====>ldmia {x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 101
+ - x18:x27=s2:11= 102, 103, 104, 105, 106, 107, 108, 109, 110, 111
+
+ ====>ldmia {x23-x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 101
+ - x18:x27=s2:11= 102, 103, 104, 105, 106, 107, 108, 109, 110, 16352
+
+ ====>ldmia {x19-x27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 101
+ - x18:x27=s2:11= 102, 103, 104, 105, 106, 16288, 81744, 99, 1420, 16352
+
+ ====>ldmia {x18-27} (sp)
+ - x2=sp= 0x3F10
+ - x8=fp= 0x3FB0
+ - x9=s1= 101
+ - x18:x27=s2:11= 102, 1769238645, 0, 16368, 254, 16288, 81744, 99, 1420, 16352
+```
 # 7. PREFI/PREFD
 - 直接打桩为nop
 ```
@@ -419,9 +569,26 @@ static bool trans_prefd(DisasContext *s, arg_prefd *a)
  */
 void test_prf(void)
 {
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    printf("\n ====> prefi s1 #0x15\n");
     INSN(0x5404a00b) // prefi
+    printf("\n ====> prefd s1 #0x15\n");
     INSN(0x5404b00b) // prefd
 }
+
+================ prf test ==================
+
+ - x2=sp= 0x3FB0
+ - x1=ra= 0x574
+ - x8=fp= 0x3FC0
+
+ ====> prefi s1 #0x15
+
+ ====> prefd s1 #0x15
 ```
 # 8. L.LI
 - qemu内部的IR本身支持32bit立即数加载，trans函数仿照lui实现即可
@@ -478,7 +645,7 @@ void test_prf(void)
 - 验证
 ```
 /*
- * l,li: 
+ * l.li: 
  * +---------------+-------+------+------------+
  * | imm32         | 0000  | rd   | 0011111    |
  * +---------------+-------+------+------------+
@@ -486,9 +653,33 @@ void test_prf(void)
  */
 void test_l_li(void)
 {
-    // 高8位填充为一个0001=nop, 以规避可能的对齐问题
-    __asm__ __volatile__ (".8byte 0x0001deadbeaf049f");
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    register int x9 asm("s1");
+
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    printf("\n ====> li s1,#0xdeadbeaf\n");
+
+    // 高8位填充为一个16bit指令, 852a=mov a0,a0, 以规避可能的对齐问题
+    INSN64(0x852adeadbeaf049f)
+
+    printf("\n - x9=s1= 0x%x\n", x9);
 }
+
+================ l.li test =================
+ - x2=sp= 0x3FA0
+ - x1=ra= 0x5A4
+ - x8=fp= 0x3FC0
+
+ - x9=s1= 0x65
+
+ ====> li s1,#0xdeadbeaf
+
+ - x9=s1= 0xDEADBEAF
 ```
 # 9. C.LBU/C.SB
 - 实现
@@ -550,6 +741,29 @@ static bool trans_c_sb(DisasContext *ctx, arg_s *a)
 }
 ```
 - 验证
+```
+/*
+ * c.lbu/c.sb: 
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 00 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 00 | // c.sb
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * 15    12        11          9     6           4    1    0
+ */
+void test_c_lbu_sb(void)
+{
+    __asm__ __volatile__ ("li a4, 0xabcdef98");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0xab98) // c.sb
+
+    __asm__ __volatile__ ("li a4, 0xdeadbeaf");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0x2b98) // c.lbu
+}
+> 使用gdb验证
+```
 # 10. C.POP/C.PUSH/C.POPRET
 - 参考RX ISA实现
     - ./target/tree/tree32.decode
@@ -753,7 +967,7 @@ void test_bcondi(void)
     INSN(0x6404f1bf) // bgeui
 }
 ```
-# 12. C.UXTB / C.UXTH 参考ARM UXTB/UXTH
+# 12. C.UXTB / C.UXTH
 ```
 # *** c.utxb / c.utxh ***
 &c_utx      rs1    !extern
@@ -778,20 +992,64 @@ static bool trans_c_utxb(DisasContext *ctx, arg_c_utx *a)
 
 static bool trans_c_utxh(DisasContext *ctx, arg_c_utx *a)
 {
-    TCGv source1 = tcg_temp_new();
-    TCGv source2 = tcg_temp_new();
+    TCGv t_rs = tcg_temp_new();
+    gen_get_gpr(t_rs, a->rs1);
 
-    gen_get_gpr(source1, a->rs1);
+    tcg_gen_andi_tl(t_rs, t_rs, 65535);
+    gen_set_gpr(a->rs1, t_rs);
 
-    tcg_gen_movi_tl(source2, 16);
-    tcg_gen_shl_tl(source1, source1, source2);
-    tcg_gen_shr_tl(source1, source1, source2);
+    tcg_temp_free(t_rs);
 
-    gen_set_gpr(a->rs1, source1);
-    tcg_temp_free(source1);
-    tcg_temp_free(source2);
     return true;
 }
+
+/*
+ * c.utxb/c.utxh: b5:2 from 00/01 to 10/11 for overlap
+ * +--------+-----+----+-------+
+ * | 100111 | rs1 | 10 | 00001 | // c.utxb
+ * | 100111 | rs1 | 11 | 00001 | // c.utxh
+ * +--------+-----+----+-------+
+ * 15       10    7    5       0
+ */
+void test_c_utx(void)
+{
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    register int x9 asm("s1");
+    __asm__ __volatile__ ("li s1, 0xabcdef01");
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    printf("\n ====> c.utxb s1\n");
+    INSN16(0x9cc1) // c.utxb
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    __asm__ __volatile__ ("li s1, 0xabcdef01");
+    printf("\n - x9=s1= 0x%x\n", x9);
+
+    printf("\n ====> c.utxh s1\n");
+    INSN16(0x9ce1) // c.utxh
+    printf("\n - x9=s1= 0x%x\n", x9);
+}
+
+================ c.utx test ==================
+ - x2=sp= 0x3FA0
+ - x1=ra= 0x5BA
+ - x8=fp= 0x3FC0
+
+ - x9=s1= 0xABCDEF01
+
+ ====> c.utxb s1
+
+ - x9=s1= 0x1
+
+ - x9=s1= 0xABCDEF01
+
+ ====> c.utxh s1
+
+ - x9=s1= 0xEF01
 ```
 # 13. C.SH / C.LHU 参考RV32I SH/LHU
 ```
@@ -1356,8 +1614,84 @@ void test_l_li(void)
  - x2=sp= 0x3FA0
  - x1=ra= 0x46A
  - x8=fp= 0x3FC0
- 
+
  - x9=s1= 0x65
  ====> li s1,#0xdeadbeaf
  - x9=s1= 0xDEADBEAF
+```
+# 18 c.sb/c.lbu 验证
+```
+/*
+ * c.lbu/c.sb: 
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * | 001 | uimm[0] | uimm[4:3] | rs1 | uimm[2:1] | rd | 00 | // c.lbu
+ * | 101 |  imm[0] |  imm[4:3] | rs1 |  imm[2:1] | rd | 00 | // c.sb
+ * +-----+---------+-----------+-----+-----------+----+----+
+ * 15    12        11          9     6           4    1    0
+ */
+void test_c_lbu_sb(void)
+{
+    __asm__ __volatile__ ("li a4, 0xabcdef98");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0xab98) // c.sb
+
+    __asm__ __volatile__ ("li a4, 0xdeadbeaf");
+    __asm__ __volatile__ ("addi a5,x2,0");
+
+    INSN16(0x2b98) // c.lbu
+}
+```
+- xv6所在目录先执行 make qemu-gdb
+```
+*** Now run 'gdb' in another window.
+/Users/kingkongtree/code/simulation/qemu-6.1.0/build/qemu-system-tree -machine virt -bios none -kernel kernel/kernel -m 128M -smp 3 -nographic -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 -S -gdb tcp::25501
+```
+- 新开terminal，在xv6目录再执行 gdb-multiarch kernel/kernel
+```
+Reading symbols from kernel/kernel...
+(gdb) file user/_uptime
+Load new symbol table from "user/_uptime"? (y or n) y
+Reading symbols from user/_uptime...
+(gdb) target remote 192.168.1.8:25501
+Remote debugging using 192.168.1.8:25501
+0x0000000000001000 in ?? ()
+(gdb) b test_c_lbu_sb 
+Breakpoint 1 at 0x3de: file user/uptime.c, line 290.
+```
+- before c.sb
+```
+sp             0x3fb0   0x3fb0
+a4             0xabcdef98       2882400152
+a5             0xa      10
+a5             0x3fb0   16304
+(gdb) p /x *(0x3fc0)
+$1 = 0x63
+```
+- after c.sb
+```
+sp             0x3fb0   0x3fb0
+a4             0xabcdef98       2882400152
+a5             0xa      10
+a5             0x3fb0   16304
+(gdb) p /x *(0x3fc0)
+$1 = 0x98 // = (*a4) & 0xff
+```
+- before c.lbu
+```
+sp             0x3fb0   0x3fb0
+a4             0xdeadbeaf       3735928495
+a5             0xa      10
+a5             0x3fb0   16304
+(gdb) p /x *(0x3fc0)
+$1 = 0x98 // = (*a4) & 0xff
+```
+- after c.lbu
+```
+sp             0x3fb0   0x3fb0
+a4             0x98     152
+a5             0xa      10
+a5             0x3fb0   16304
+(gdb) p /x *(0x3fc0)
+$1 = 0x98 // = (*a4) & 0xff
 ```
