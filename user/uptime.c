@@ -291,7 +291,7 @@ void test_c_lbu_sb(void)
     __asm__ __volatile__ ("li a4, 0xabcdef98");
     __asm__ __volatile__ ("addi a5,x2,0");
 
-    INSN16(0xab98) // c.sb
+    INSN16(0xab98) // c.sb a4, #16(a5)
 
     __asm__ __volatile__ ("li a4, 0xdeadbeaf");
     __asm__ __volatile__ ("addi a5,x2,0");
@@ -312,15 +312,12 @@ void test_c_lbh_sh(void)
      __asm__ __volatile__ ("li a4, 0xabcdef98");
     __asm__ __volatile__ ("addi a5,x2,0");
 
-    INSN16(0xab98) // c.sh
+    INSN16(0xabb) // c.sh a4, #16(a5)
 
     __asm__ __volatile__ ("li a4, 0xdeadbeaf");
     __asm__ __volatile__ ("addi a5,x2,0");
 
-    INSN16(0x2b98) // c.lhu
-
-    INSN16(0xac67) // c.sh
-    INSN16(0x2c67) // c.lhu
+    INSN16(0x2b9b) // c.lhu a4, #16(a5)
 }
 
 /*
