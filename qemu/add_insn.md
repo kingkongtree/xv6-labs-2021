@@ -874,18 +874,59 @@ void test_c_lbu_sb(void)
 ```
 # *** bcondi ***
 %bi_cmp     24:8
-%bi_offset  7:5 20:4
+%bi_offset  20:4 7:5    !function=ex_shift_1
 
 &bi     bi_cmp bi_offset rs1
 @bi     ........ .... ..... ... ..... ....... &bi %bi_cmp %bi_offset %rs1
 
-# change opc from 0111011 to 0111111 for overlap
-beqi    ........ .... ..... 000 ..... 0111111 @bi
-bnei    ........ .... ..... 001 ..... 0111111 @bi
-blti    ........ .... ..... 100 ..... 0111111 @bi
-bgei    ........ .... ..... 101 ..... 0111111 @bi
-bltui   ........ .... ..... 110 ..... 0111111 @bi
-bgeui   ........ .... ..... 111 ..... 0111111 @bi
+{
+  addw     0000000 .....  ..... 000 ..... 0111011 @r
+  subw     0100000 .....  ..... 000 ..... 0111011 @r
+  mulw     0000001 .....  ..... 000 ..... 0111011 @r
+  add_uw    0000100 .......... 000 ..... 0111011 @r
+  beqi    ........ .... ..... 000 ..... 0111011 @bi
+}
+
+{
+  sllw     0000000 .....  ..... 001 ..... 0111011 @r
+  bsetw      0010100 .......... 001 ..... 0111011 @r
+  bclrw      0100100 .......... 001 ..... 0111011 @r
+  binvw      0110100 .......... 001 ..... 0111011 @r
+  slow       0010000 .......... 001 ..... 0111011 @r
+  rolw       0110000 .......... 001 ..... 0111011 @r
+  bnei    ........ .... ..... 001 ..... 0111011 @bi
+}
+
+{
+  divw     0000001 .....  ..... 100 ..... 0111011 @r
+  packw      0000100 .......... 100 ..... 0111011 @r
+  packuw     0100100 .......... 100 ..... 0111011 @r
+  sh2add_uw  0010000 .......... 100 ..... 0111011 @r
+  blti    ........ .... ..... 100 ..... 0111011 @bi
+}
+
+{
+  srlw     0000000 .....  ..... 101 ..... 0111011 @r
+  sraw     0100000 .....  ..... 101 ..... 0111011 @r
+  divuw    0000001 .....  ..... 101 ..... 0111011 @r
+  bextw      0100100 .......... 101 ..... 0111011 @r
+  srow       0010000 .......... 101 ..... 0111011 @r
+  rorw       0110000 .......... 101 ..... 0111011 @r
+  grevw      0110100 .......... 101 ..... 0111011 @r
+  gorcw      0010100 .......... 101 ..... 0111011 @r
+  bgei    ........ .... ..... 101 ..... 0111011 @bi
+}
+
+{
+  remw     0000001 .....  ..... 110 ..... 0111011 @r
+  sh3add_uw  0010000 .......... 110 ..... 0111011 @r
+  bltui   ........ .... ..... 110 ..... 0111011 @bi
+}
+
+{
+  remuw    0000001 .....  ..... 111 ..... 0111011 @r
+  bgeui   ........ .... ..... 111 ..... 0111011 @bi
+}
 
 
 // porting from gen_branch
@@ -902,11 +943,11 @@ static bool gen_branchi(DisasContext *ctx, arg_bi *a, TCGCond cond)
     gen_goto_tb(ctx, 1, ctx->pc_succ_insn);
     gen_set_label(l); /* branch taken */
 
-    if (!has_ext(ctx, RVC) && ((ctx->base.pc_next + (a->bi_offset << 1)) & 0x3)) { // bi_offset align to 16bytes
+    if (!has_ext(ctx, RVC) && ((ctx->base.pc_next + a->bi_offset) & 0x3)) { // bi_offset align to 16bytes
         /* misaligned */
         gen_exception_inst_addr_mis(ctx);
     } else {
-        gen_goto_tb(ctx, 0, ctx->base.pc_next + a->bi_offset);
+        gen_goto_tb(ctx, 0, ctx->base.pc_next + a->bi_offset); // step 2bits
     }
     ctx->base.is_jmp = DISAS_NORETURN;
 
@@ -949,26 +990,64 @@ static bool trans_bgeui(DisasContext *ctx, arg_bgeui *a)
 - 验证
 ```
 /*
- * bxxi: opc change from 0111011 to 0111111 for overlap
+ * bcondi:
  * +--------+-------------+-------+-----+-------------+---------+
- * | cmp7   | offset[9:6] | rs1   | 000 | offset[5:1] | 0111111 | // beqi
- * | cmp7   | offset[9:6] | rs1   | 001 | offset[5:1] | 0111111 | // bnei
- * | cmp7   | offset[9:6] | rs1   | 100 | offset[5:1] | 0111111 | // blti
- * | cmp7   | offset[9:6] | rs1   | 101 | offset[5:1] | 0111111 | // bgei
- * | cmp7   | offset[9:6] | rs1   | 110 | offset[5:1] | 0111111 | // bltui
- * | cmp7   | offset[9:6] | rs1   | 111 | offset[5:1] | 0111111 | // bgeui
+ * | cmp7   | offset[9:6] | rs1   | 000 | offset[5:1] | 0111011 | // beqi
+ * | cmp7   | offset[9:6] | rs1   | 001 | offset[5:1] | 0111011 | // bnei
+ * | cmp7   | offset[9:6] | rs1   | 100 | offset[5:1] | 0111011 | // blti
+ * | cmp7   | offset[9:6] | rs1   | 101 | offset[5:1] | 0111011 | // bgei
+ * | cmp7   | offset[9:6] | rs1   | 110 | offset[5:1] | 0111011 | // bltui
+ * | cmp7   | offset[9:6] | rs1   | 111 | offset[5:1] | 0111011 | // bgeui
  * +--------+-------------+-------+-----+-------------+---------+
  * 31       24            19      14    11            6         0
  */
 void test_bcondi(void)
 {
-    INSN(0x640481bf) // beqi
-    INSN(0x640491bf) // bnei
-    INSN(0x6404c1bf) // blti
-    INSN(0x6404d1bf) // bgei
-    INSN(0x6404e1bf) // bltui
-    INSN(0x6404f1bf) // bgeui
+    register int x27 asm("s11");
+
+    __asm__ __volatile__ ("addi s11, x0, 0x70");
+    INSN(0x701d813b) // beqi s11,0x70, 68(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x69");
+    INSN(0x700d9fbb) // bnei s11,0x70, 60(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x68");
+    INSN(0x700dcd3b) // blti s11,0x70, 52(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x67");
+    INSN(0x700ddb3b) // bgei s11,0x70, 44(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x66");
+    INSN(0x700de93b) // bltui s11,0x70, 36(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x65");
+    INSN(0x700df73b) // bgeui s11,0x70, 28(sp)
+
+    printf("miss #1: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
+    printf("hit  #1: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
+
+    __asm__ __volatile__ ("addi s11, x0, 0x70");
+    INSN(0x700d9fbb) // bnei s11,0x70, 60(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x69");
+    INSN(0x700dcd3b) // blti s11,0x70, 52(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x68");
+    INSN(0x700ddb3b) // bgei s11,0x70, 44(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x67");
+    INSN(0x700de93b) // bltui s11,0x70, 36(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x66");
+    INSN(0x700df73b) // bgeui s11,0x70, 28(sp)
+
+    printf("miss #2: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
+    printf("hit  #2: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
 }
+
+================ bcondi test ===============
+hit  #1: rs1=x27=s11= 0x70, cmpimm= 0x70
+hit  #2: rs1=x27=s11= 0x69, cmpimm= 0x70
 ```
 # 12. C.UXTB / C.UXTH
 ```

@@ -334,33 +334,46 @@ void test_c_lhu_sh(void)
  */
 void test_bcondi(void)
 {
-    register int x2 asm("sp");
-    register int x1 asm("ra");
-    register int x8 asm("s0");
-    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
-
     register int x27 asm("s11");
 
-    __asm__ __volatile__ ("li s11, 0x70");
-    INSN(0x640481bf) // beqi s11,0x70,#
+    __asm__ __volatile__ ("addi s11, x0, 0x70");
+    INSN(0x701d813b) // beqi s11,0x70, 68(sp)
 
-    __asm__ __volatile__ ("li s11, 0x71");
-    INSN(0x640491bf) // bnei
+    __asm__ __volatile__ ("addi s11, x0, 0x69");
+    INSN(0x700d9fbb) // bnei s11,0x70, 60(sp)
 
-    __asm__ __volatile__ ("li s11, 0x69");
-    INSN(0x6404c1bf) // blti
+    __asm__ __volatile__ ("addi s11, x0, 0x68");
+    INSN(0x700dcd3b) // blti s11,0x70, 52(sp)
 
-    __asm__ __volatile__ ("li s11, 0x70");
-    INSN(0x6404d1bf) // bgei
+    __asm__ __volatile__ ("addi s11, x0, 0x67");
+    INSN(0x700ddb3b) // bgei s11,0x70, 44(sp)
 
-    __asm__ __volatile__ ("li s11, 0x69");
-    INSN(0x6404e1bf) // bltui
+    __asm__ __volatile__ ("addi s11, x0, 0x66");
+    INSN(0x700de93b) // bltui s11,0x70, 36(sp)
 
-    __asm__ __volatile__ ("li s11, 0x71");
-    INSN(0x6404f1bf) // bgeui
+    __asm__ __volatile__ ("addi s11, x0, 0x65");
+    INSN(0x700df73b) // bgeui s11,0x70, 28(sp)
 
-cond_hit:
-    printf("0x : hit, rs1=x27=s11= %d, cmp_imm = %d\n", x27, 0x70);
+    printf("miss #1: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
+    printf("hit  #1: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
+
+    __asm__ __volatile__ ("addi s11, x0, 0x70");
+    INSN(0x700d9fbb) // bnei s11,0x70, 60(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x69");
+    INSN(0x700dcd3b) // blti s11,0x70, 52(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x68");
+    INSN(0x700ddb3b) // bgei s11,0x70, 44(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x67");
+    INSN(0x700de93b) // bltui s11,0x70, 36(sp)
+
+    __asm__ __volatile__ ("addi s11, x0, 0x66");
+    INSN(0x700df73b) // bgeui s11,0x70, 28(sp)
+
+    printf("miss #2: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
+    printf("hit  #2: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
 }
 
 /*
@@ -422,10 +435,10 @@ int main(int argc, char *argv[])
     printf("\n================ c.lbh/c.sh test ===========\n");
     test_c_lhu_sh();
 
-    // what code done, but debug todo
     printf("\n================ bcondi test ===============\n");
     test_bcondi();
 
+    // what code done, but debug todo
     printf("\n================ prf c.pop/c.push ==========\n");
     test_c_pop_push();
 

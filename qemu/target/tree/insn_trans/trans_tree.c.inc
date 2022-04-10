@@ -356,11 +356,11 @@ static bool gen_branchi(DisasContext *ctx, arg_bi *a, TCGCond cond)
     gen_goto_tb(ctx, 1, ctx->pc_succ_insn);
     gen_set_label(l); /* branch taken */
 
-    if (!has_ext(ctx, RVC) && ((ctx->base.pc_next + (a->bi_offset << 1)) & 0x3)) { // bi_offset align to 16bytes
+    if (!has_ext(ctx, RVC) && ((ctx->base.pc_next + a->bi_offset) & 0x3)) { // bi_offset align to 16bytes
         /* misaligned */
         gen_exception_inst_addr_mis(ctx);
     } else {
-        gen_goto_tb(ctx, 0, ctx->base.pc_next + a->bi_offset);
+        gen_goto_tb(ctx, 0, ctx->base.pc_next + a->bi_offset); // step 2bits
     }
     ctx->base.is_jmp = DISAS_NORETURN;
 
