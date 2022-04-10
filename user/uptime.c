@@ -321,6 +321,49 @@ void test_c_lhu_sh(void)
 }
 
 /*
+ * bcondi:
+ * +--------+-------------+-------+-----+-------------+---------+
+ * | cmp7   | offset[9:6] | rs1   | 000 | offset[5:1] | 0111011 | // beqi
+ * | cmp7   | offset[9:6] | rs1   | 001 | offset[5:1] | 0111011 | // bnei
+ * | cmp7   | offset[9:6] | rs1   | 100 | offset[5:1] | 0111011 | // blti
+ * | cmp7   | offset[9:6] | rs1   | 101 | offset[5:1] | 0111011 | // bgei
+ * | cmp7   | offset[9:6] | rs1   | 110 | offset[5:1] | 0111011 | // bltui
+ * | cmp7   | offset[9:6] | rs1   | 111 | offset[5:1] | 0111011 | // bgeui
+ * +--------+-------------+-------+-----+-------------+---------+
+ * 31       24            19      14    11            6         0
+ */
+void test_bcondi(void)
+{
+    register int x2 asm("sp");
+    register int x1 asm("ra");
+    register int x8 asm("s0");
+    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+
+    register int x27 asm("s11");
+
+    __asm__ __volatile__ ("li s11, 0x70");
+    INSN(0x640481bf) // beqi s11,0x70,#
+
+    __asm__ __volatile__ ("li s11, 0x71");
+    INSN(0x640491bf) // bnei
+
+    __asm__ __volatile__ ("li s11, 0x69");
+    INSN(0x6404c1bf) // blti
+
+    __asm__ __volatile__ ("li s11, 0x70");
+    INSN(0x6404d1bf) // bgei
+
+    __asm__ __volatile__ ("li s11, 0x69");
+    INSN(0x6404e1bf) // bltui
+
+    __asm__ __volatile__ ("li s11, 0x71");
+    INSN(0x6404f1bf) // bgeui
+
+cond_hit:
+    printf("0x : hit, rs1=x27=s11= %d, cmp_imm = %d\n", x27, 0x70);
+}
+
+/*
  * c.pop/c.popret/c.push: 
  * +-----+---------+--------+----+----+
  * | 100 | sp16imm | rcount | 00 | 00 | // c.pop
@@ -339,33 +382,6 @@ void test_c_pop_push(void)
     INSN16(0x8a30) // c.pop
     INSN16(0x8a3c) // c.push
     INSN16(0x8a34) // c.popret
-}
-
-/*
- * bxxi: opc change from 0111011 to 0111111 for overlap
- * +--------+-------------+-------+-----+-------------+---------+
- * | cmp7   | offset[9:6] | rs1   | 000 | offset[5:1] | 0111111 | // beqi
- * | cmp7   | offset[9:6] | rs1   | 001 | offset[5:1] | 0111111 | // bnei
- * | cmp7   | offset[9:6] | rs1   | 100 | offset[5:1] | 0111111 | // blti
- * | cmp7   | offset[9:6] | rs1   | 101 | offset[5:1] | 0111111 | // bgei
- * | cmp7   | offset[9:6] | rs1   | 110 | offset[5:1] | 0111111 | // bltui
- * | cmp7   | offset[9:6] | rs1   | 111 | offset[5:1] | 0111111 | // bgeui
- * +--------+-------------+-------+-----+-------------+---------+
- * 31       24            19      14    11            6         0
- */
-void test_bcondi(void)
-{
-    register int x2 asm("sp");
-    register int x1 asm("ra");
-    register int x8 asm("s0");
-    printf(" - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
-
-    INSN(0x640481bf) // beqi
-    INSN(0x640491bf) // bnei
-    INSN(0x6404c1bf) // blti
-    INSN(0x6404d1bf) // bgei
-    INSN(0x6404e1bf) // bltui
-    INSN(0x6404f1bf) // bgeui
 }
 
 int main(int argc, char *argv[])
@@ -397,7 +413,7 @@ int main(int argc, char *argv[])
     printf("\n================ l.li test =================\n");
     test_l_li();
 
-    printf("\n================ c.utx test ==================\n");
+    printf("\n================ c.utx test ================\n");
     test_c_utx();
 
     printf("\n================ c.lbu/c.sb test ===========\n");
