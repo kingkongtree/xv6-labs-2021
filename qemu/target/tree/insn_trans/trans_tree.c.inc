@@ -283,7 +283,7 @@ static bool trans_c_pop(DisasContext *ctx, arg_c_push *a)
     tcg_gen_addi_tl(t0, t0, sp_offset - a->c_rcount * 4);
 
     for (r = 1; r <= a->c_rcount; ++r) {
-        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESW);
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESL);
         gen_set_gpr(reg_list[a->c_rcount + 1 - r], t1);
         tcg_gen_addi_tl(t0, t0, 4);
     }
@@ -328,7 +328,7 @@ static bool trans_c_push(DisasContext *ctx, arg_c_push *a)
 
     for (r = 1; r <= a->c_rcount; ++r) {
         gen_get_gpr(t1, reg_list[a->c_rcount + 1 - r]);
-        tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TESW);
+        tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TESL);
         tcg_gen_addi_tl(t0, t0, 4);
     }
 

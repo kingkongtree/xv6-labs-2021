@@ -1,18 +1,6 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
-int orsra_4(int rs1, int rs2)
-{
-    int rd;
-    __asm__ __volatile__ (
-       ".insn r 0x1b, 2, 68, %[rd], %[rs1], %[rs2]"
-             :[rd]"=r"(rd)
-             :[rs1]"r"(rs1),[rs2]"r"(rs2)
-     );
-    
-    return rd;
-}
-
 /*
  * R type: .insn r opcode, func3, func7, rd, rs1, rs2
  * +-------+-----+-----+-------+----+-------------+
@@ -28,7 +16,7 @@ int orsra_4(int rs1, int rs2)
  * +------+-------+-------+-------+-----+------+---------+
  * 31     29      24      19      14    11     7         0
  */
-int addsll_2(int rs1, int rs2)
+static int addsll_2(int rs1, int rs2)
 {
     int rd;
     __asm__ __volatile__ (
@@ -39,6 +27,19 @@ int addsll_2(int rs1, int rs2)
     
     return rd;
 }
+
+static int orsra_4(int rs1, int rs2)
+{
+    int rd;
+    __asm__ __volatile__ (
+       ".insn r 0x1b, 2, 68, %[rd], %[rs1], %[rs2]"
+             :[rd]"=r"(rd)
+             :[rs1]"r"(rs1),[rs2]"r"(rs2)
+     );
+    
+    return rd;
+}
+
 
 #define INSN16(value)                               \
         __asm__ __volatile__ (".2byte "#value);     \
@@ -376,6 +377,25 @@ void test_bcondi(void)
     printf("hit  #2: rs1=x27=s11= 0x%x, cmpimm= 0x%x\n", x27, 0x70);
 }
 
+/* 
+ * muliadd:
+ * +-----------+-------+-------+---------+----+------+---------+
+ * | uimm[7:1] | rs2   | rs1   | uimm[0] | 01 | rd   | 1011011 |
+ * +-----------+-------+-------+---------+----+------+---------+
+ * 31          25      20      15        14   12     7         0
+ */
+void test_muliadd(void)
+{
+    register int x11 asm("a1");
+
+    __asm__ __volatile__ ("addi s1, x0, 3");
+    __asm__ __volatile__ ("addi s2, x0, 2");
+    
+    INSN(0x724d5db) // muliadd a1, s1, s2 #7
+    
+    printf("muliadd a1, 3, 2 #7 = %d\n", x11);
+}
+
 /*
  * c.pop/c.popret/c.push: 
  * +-----+---------+--------+----+----+
@@ -387,14 +407,32 @@ void test_bcondi(void)
  */
 void test_c_pop_push(void)
 {
-    register int x2 asm("sp");
-    register int x1 asm("ra");
-    register int x8 asm("s0");
-    printf("\n - x2=sp= 0x%x\n - x1=ra= 0x%x\n - x8=fp= 0x%x\n", x2, x1, x8);
+    // just verfiy it while gdb debugging _uptime
+    //INSN16(0x8050) // c.pop {x1, x8-x9, x18-x19}, #0(sp)
 
-    INSN16(0x8a30) // c.pop
-    INSN16(0x8a3c) // c.push
-    INSN16(0x8a34) // c.popret
+    // just verfiy it while gdb debugging _uptime
+    //INSN16(0x8268) // c.push {x1, x8-x9, x18-x20}, #2(sp)
+
+    // may cause unexpected usertrap for random ret; verified also in c.pop
+    // just verfiy it while gdb debugging trans_c_popret function for decoding
+    // INSN16(0x8054) // c.popret {x1, x8-x9, x18-x19}, #0(sp)
+}
+
+/*
+ * j16m/jal16m: 
+ * +---------+-----------+---------+------------+------------+---+---------+
+ * | imm[20] | imm[10:1] | imm[11] | imm[19:12] | imm[24:21] | 0 | 1111011 | // jal16m
+ * | imm[20] | imm[10:1] | imm[11] | imm[19:12] | imm[24:21] | 1 | 1111011 | // j16m
+ * +---------+-----------+---------+------------+------------+---+---------+
+ * 31        30          20        19           12           8   7         0
+ */
+void test_j16m(void)
+{
+    // just verfiy it while gdb debugging trans_c_popret function for decoding
+    // INSN(0x010101fb) // j16m #2162704
+
+    // just verfiy it while gdb debugging trans_c_popret function for decoding
+    // INSN(0x1010107b) // jal16m #6400
 }
 
 int main(int argc, char *argv[])
@@ -438,12 +476,14 @@ int main(int argc, char *argv[])
     printf("\n================ bcondi test ===============\n");
     test_bcondi();
 
-    // what code done, but debug todo
-    printf("\n================ prf c.pop/c.push ==========\n");
+    printf("\n================ muliadd test ==============\n");
+    test_muliadd();
+
+    printf("\n================ c.pop/c.push test =========\n");
     test_c_pop_push();
 
-    // todo muliadd
-    // todo j16m / jal16m
+    printf("\n================ j16m/jal16m ===============\n");
+    test_j16m();
 
     exit(0);
 }

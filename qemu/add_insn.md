@@ -807,7 +807,7 @@ void test_c_lbu_sb(void)
         tcg_gen_addi_tl(t0, t0, sp_offset - a->c_rcount * 4);
 
         for (r = 1; r <= a->c_rcount; ++r) {
-            tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESW);
+            tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_TESL);
             gen_set_gpr(reg_list[a->c_rcount + 1 - r], t1);
             tcg_gen_addi_tl(t0, t0, 4);
         }
@@ -852,7 +852,7 @@ void test_c_lbu_sb(void)
 
         for (r = 1; r <= a->c_rcount; ++r) {
             gen_get_gpr(t1, reg_list[a->c_rcount + 1 - r]);
-            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TESW);
+            tcg_gen_qemu_st_tl(t1, t0, ctx->mem_idx, MO_TESL);
             tcg_gen_addi_tl(t0, t0, 4);
         }
 
@@ -868,6 +868,87 @@ void test_c_lbu_sb(void)
     ```
 - 验证
 ```
+/*
+ * c.pop/c.popret/c.push: 
+ * +-----+---------+--------+----+----+
+ * | 100 | sp16imm | rcount | 00 | 00 | // c.pop
+ * | 100 | sp16imm | rcount | 01 | 00 | // c.popret
+ * | 100 | sp16imm | rcount | 10 | 00 | // c.push
+ * +-----+---------+--------+----+----+
+ * 15    12        7        3    1    0
+ */
+void test_c_pop_push(void)
+{
+    INSN16(0x8050) // c.pop {x1, x8-x9, x18-x19}, #0(sp)
+
+    INSN16(0x8268) // c.push {x1, x8-x9, x18-x20}, #2(sp)
+
+    INSN16(0x8054) // c.popret {x1, x8-x9, x18-x19}, #0(sp)
+}
+
+// before c.pop
+sp             0x3fb0   0x3fb0
+ra             0x69a    0x69a
+fp             0x3fe0   0x3fe0
+s1             0x3      3
+s2             0x2      2
+s3             0x656d69747075   111520595079285
+s4             0x0      0
+(gdb) p /x *(0x3fb0 + 12)
+$6 = 0x0
+(gdb) p /x *(0x3fb0 + 16)
+$7 = 0x98
+(gdb) p /x *(0x3fb0 + 20)
+$8 = 0x0
+(gdb) p /x *(0x3fb0 + 24)
+$9 = 0x13f50
+(gdb) p /x *(0x3fb0 + 28)
+$10 = 0x0
+
+(gdb) p /x *(0x3f90 + 28)
+$16 = 0x0
+(gdb) p /x *(0x3f90 + 24)
+$17 = 0xa
+(gdb) p /x *(0x3f90 + 20)
+$18 = 0x0
+(gdb) p /x *(0x3f90 + 16)
+$19 = 0x1
+(gdb) p /x *(0x3f90 + 12)
+$20 = 0x0
+
+// after c.pop 
+sp             0x3fd0   0x3fd0      // sp += 32
+ra             0x0      0x0         // x1=ra= *(uint16_t *)(sp + 28)
+fp             0x13f50  0x13f50     // x8=s0=fp= *(uint16_t *)(sp + 24)
+s1             0x0      0           // x9=s1= *(uint16_t *)(sp + 20)
+s2             0x98     152         // x18=s2= *(uint16_t *)(sp + 16)
+s3             0x0      0           // x19=s3= *(uint16_t *)(sp + 12)
+s4             0x0      0           // x20=s4
+
+// after c.push
+sp             0x3f90   0x3f90      // sp -= 64
+(gdb) p /x *(0x3fd0 - 24)
+$11 = 0x0                           // *(uint16_t *)(sp - 24) = s4
+(gdb) p /x *(0x3fd0 - 20)
+$12 = 0x0                           // *(uint16_t *)(sp - 20) = s3
+(gdb) p /x *(0x3fd0 - 16)
+$13 = 0x98                          // *(uint16_t *)(sp - 16) = s2
+(gdb) p /x *(0x3fd0 - 8)
+$14 = 0x13f50                       // *(uint16_t *)(sp - 8) = s2
+(gdb) p /x *(0x3fd0 - 4)
+$15 = 0x0                           // *(uint16_t *)(sp - 4) = ra
+
+// after c.popret
+sp             0x3fb0   0x3fb0      // sp += 32
+ra             0x0      0x0         // x1=ra= *(uint16_t *)(sp + 28)
+fp             0xa      0xa         // x8=s0=fp= *(uint16_t *)(sp + 24)
+s1             0x0      0           // x9=s1= *(uint16_t *)(sp + 20)
+s2             0x1      0x1         // x18=s2= *(uint16_t *)(sp + 16)
+s3             0x0      0           // x19=s3= *(uint16_t *)(sp + 12)
+s4             0x0      0           // x20=s4
+================ prf c.pop/c.push ==========
+usertrap(): unexpected scause 0x000000000000000d pid=4
+            sepc=0x0000000000000514 stval=0x0000000000004000
 ```
 # 11. BCONDI
 - 实现：对BCOND指令的简单移植
@@ -1234,7 +1315,7 @@ $1 = 0xef76 // = (*a4) & 0xff
 # 14. MULTADD
 ```
 # *** muliadd ***
-%muli_uimm 14:1 25:7
+%muli_uimm 25:7 14:1
 &muliadd  uimm rs2 rs1 rd
 
 @muliadd  ....... ..... ..... . .. ..... ....... &muliadd  uimm=%muli_uimm %rs2 %rs1 %rd
@@ -1262,11 +1343,32 @@ static bool trans_muliadd(DisasContext *ctx, arg_muliadd *a)
 ```
 - 验证
 ```
+/* 
+ * muliadd:
+ * +-----------+-------+-------+---------+----+------+---------+
+ * | uimm[7:1] | rs2   | rs1   | uimm[0] | 01 | rd   | 1011011 |
+ * +-----------+-------+-------+---------+----+------+---------+
+ * 31          25      20      15        14   12     7         0
+ */
+void test_muliadd(void)
+{
+    register int x11 asm("a1");
+
+    __asm__ __volatile__ ("addi s1, x0, 3");
+    __asm__ __volatile__ ("addi s2, x0, 2");
+    
+    INSN(0x724d5db) // muliadd a1, s1, s2 #7
+    
+    printf("muliadd a1, 3, 2 #7 = %d\n", x11);
+}
+
+================ muliadd test ==============
+muliadd a1, 3, 2 #7 = 17
 ```
 # 15. J16M / JAL16M
 ```
 # *** j16m / jal16m ***
-%j16m   21:s10 20:1 12:8 31:1 8:4
+%j16m   8:s4 31:1 12:8 20:1 21:10
 &j16m   simm
 
 @j16m   . .......... . ........ .... . .......  &j16m simm=%j16m
@@ -1288,6 +1390,22 @@ static bool trans_jal16m(DisasContext *ctx, arg_j16m *a)
 ```
 - 验证
 ```
+/*
+ * j16m/jal16m: 
+ * +---------+-----------+---------+------------+------------+---+---------+
+ * | imm[20] | imm[10:1] | imm[11] | imm[19:12] | imm[24:21] | 0 | 1111011 | // jal16m
+ * | imm[20] | imm[10:1] | imm[11] | imm[19:12] | imm[24:21] | 1 | 1111011 | // j16m
+ * +---------+-----------+---------+------------+------------+---+---------+
+ * 31        30          20        19           12           8   7         0
+ */
+void test_j16m(void)
+{
+    // just verfiy it while gdb debugging trans_c_popret function for decoding
+    // INSN(0x010101fb) // j16m #2162704
+
+    // just verfiy it while gdb debugging trans_c_popret function for decoding
+    // INSN(0x1010107b) // jal16m #6400
+}
 ```
 # 16. debug stmia/ldmia
 ## 16.1 Illegal Instruction
