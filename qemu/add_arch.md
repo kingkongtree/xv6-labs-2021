@@ -68,6 +68,19 @@
     ```
     QEMU_ARCH_TREE = (1 << 30),
     ```
+- ./linux-user/
+    - ./linux-user/eflload.c
+    - ./linux-user/qemu.h
+    - ./linux-user/signal.c
+    - ./linux-user/syscall_defs.h
+    - ./linux-user/riscv/syscall_nr.h
+    -./linux-user/riscv/target_syscall.h
+        - #ifdef TARGET_RISCV -> #if defined(TARGET_RISCV) || defined(TARGET_TREE)
+        - #if defined(TARGET_RISCV) -> #if defined(TARGET_RISCV) || defined(TARGET_TREE)
+        - #ifdef TARGET_RISCV32 -> #if defined(TARGET_RISCV32) || defined(TARGET_TREE)
+        - #if defined(TARGET_RISCV32) -> #if defined(TARGET_RISCV32) || defined(TARGET_TREE)
+- ./semihosting/arm-compat-semi.c
+    - #ifdef TARGET_RISCV -> #if defined(TARGET_RISCV) || defined(TARGET_TREE)
 - ./target
     - ./target/Kconfig
         ```

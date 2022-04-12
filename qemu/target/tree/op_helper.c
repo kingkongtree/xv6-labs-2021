@@ -250,16 +250,4 @@ target_ulong helper_hyp_hlvx_wu(CPURISCVState *env, target_ulong address)
     return cpu_ldl_mmuidx_ra(env, address, mmu_idx, GETPC());
 }
 
-/*
- * self define cube - zhanglei
- * @r_cube  .......  ..... .....  ... ..... ....... %rs1 %rd
- * cube     0000110  00000 .....  110 ..... 1111011 @r_cube
- */
-target_ulong helper_cube(target_ulong rs1)
-{
-    target_ulong val;
-    cpu_physical_memory_rw(rs1, &val, 8, 0);
-    return val * val * val;
-}
-
 #endif /* !CONFIG_USER_ONLY */

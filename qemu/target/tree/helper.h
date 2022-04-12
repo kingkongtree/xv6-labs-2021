@@ -1149,10 +1149,3 @@ DEF_HELPER_6(vcompress_vm_b, void, ptr, ptr, ptr, ptr, env, i32)
 DEF_HELPER_6(vcompress_vm_h, void, ptr, ptr, ptr, ptr, env, i32)
 DEF_HELPER_6(vcompress_vm_w, void, ptr, ptr, ptr, ptr, env, i32)
 DEF_HELPER_6(vcompress_vm_d, void, ptr, ptr, ptr, ptr, env, i32)
-
-/*
- * self define cude - zhanglei
- * @r_cube  .......  ..... .....  ... ..... ....... %rs1 %rd
- * cube     0000110  00000 .....  110 ..... 1111011 @r_cube
- */
-DEF_HELPER_1(cube, tl, tl)
